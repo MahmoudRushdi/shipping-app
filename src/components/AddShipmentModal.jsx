@@ -1,0 +1,221 @@
+import { useState, useEffect } from 'react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '/src/firebaseConfig';
+
+export default function AddShipmentModal({ closeModal }) {
+    const [formData, setFormData] = useState({
+        shipmentId: `SHP-${crypto.randomUUID().split('-')[0].toUpperCase()}`,
+        customerName: '',
+        recipientPhone: '',
+        senderName: '',
+        senderPhone: '',
+        governorate: '',
+        parcelCount: 1,
+        courierName: '',
+        parcelType: '',
+        weight: 0, 
+        notes: '', 
+        goodsValue: 0,
+        goodsCurrency: 'USD',
+        shippingFee: 0,
+        shippingFeeCurrency: 'USD',
+        shippingFeePaymentMethod: 'collect',
+        hwalaFee: 0,
+        hwalaFeeCurrency: 'USD',
+        hwalaFeePaymentMethod: 'collect',
+        internalTransferFee: 0,
+        internalTransferFeeCurrency: 'USD',
+        assignedCar: '',
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
+
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        const val = type === 'checkbox' ? checked : value;
+        setFormData(prev => ({ ...prev, [name]: val }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            await addDoc(collection(db, 'shipments'), {
+                ...formData,
+                status: 'تم الاستلام من المرسل',
+                createdAt: serverTimestamp(),
+            });
+            closeModal();
+        } catch (error) {
+            console.error("Error adding document: ", error);
+            alert("حدث خطأ أثناء إضافة الشحنة.");
+        }
+        setIsSubmitting(false);
+    };
+    
+    const calculateTotalToCollect = () => {
+        const totals = {};
+        const goodsVal = parseFloat(formData.goodsValue) || 0;
+        if (goodsVal > 0) {
+            totals[formData.goodsCurrency] = (totals[formData.goodsCurrency] || 0) + goodsVal;
+        }
+        if (formData.shippingFeePaymentMethod === 'collect') {
+            const shippingVal = parseFloat(formData.shippingFee) || 0;
+            if (shippingVal > 0) {
+                totals[formData.shippingFeeCurrency] = (totals[formData.shippingFeeCurrency] || 0) + shippingVal;
+            }
+        }
+        if (formData.hwalaFeePaymentMethod === 'collect') {
+            const hwalaVal = parseFloat(formData.hwalaFee) || 0;
+            if (hwalaVal > 0) {
+                totals[formData.hwalaFeeCurrency] = (totals[formData.hwalaFeeCurrency] || 0) + hwalaVal;
+            }
+        }
+        const totalStrings = Object.entries(totals).map(([currency, amount]) => {
+            return `${amount.toLocaleString()} ${currency}`;
+        });
+        return totalStrings;
+    };
+    
+    const totalsToCollect = calculateTotalToCollect();
+
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center z-50 overflow-y-auto p-4" dir="rtl">
+            <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-4xl m-auto">
+                <h2 className="text-2xl font-bold mb-6 text-gray-800">إضافة شحنة جديدة</h2>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <fieldset className="border p-4 rounded-md">
+                        <legend className="px-2 font-semibold">معلومات الشحنة</legend>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                            <div>
+                                <label htmlFor="shipmentId" className="block text-sm font-medium text-gray-700 mb-1">رقم الشحنة</label>
+                                <input id="shipmentId" type="text" name="shipmentId" value={formData.shipmentId} className="p-2 border rounded-md w-full bg-gray-100" readOnly />
+                            </div>
+                            <div>
+                                <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1">اسم المستلم</label>
+                                <input id="customerName" type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                            </div>
+                            <div>
+                                <label htmlFor="recipientPhone" className="block text-sm font-medium text-gray-700 mb-1">رقم هاتف المستلم</label>
+                                <input id="recipientPhone" type="text" name="recipientPhone" value={formData.recipientPhone} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                            </div>
+                            <div>
+                                <label htmlFor="senderName" className="block text-sm font-medium text-gray-700 mb-1">اسم المرسل</label>
+                                <input id="senderName" type="text" name="senderName" value={formData.senderName} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                            </div>
+                            <div>
+                                <label htmlFor="senderPhone" className="block text-sm font-medium text-gray-700 mb-1">رقم هاتف المرسل</label>
+                                <input id="senderPhone" type="text" name="senderPhone" value={formData.senderPhone} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                            </div>
+                            <div>
+                                <label htmlFor="governorate" className="block text-sm font-medium text-gray-700 mb-1">المحافظة</label>
+                                <input id="governorate" type="text" name="governorate" value={formData.governorate} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                            </div>
+                             <div>
+                                <label htmlFor="parcelType" className="block text-sm font-medium text-gray-700 mb-1">نوع الطرد</label>
+                                <input id="parcelType" type="text" name="parcelType" value={formData.parcelType} onChange={handleChange} className="p-2 border rounded-md w-full" />
+                            </div>
+                            <div>
+                                <label htmlFor="parcelCount" className="block text-sm font-medium text-gray-700 mb-1">عدد الطرود</label>
+                                <input id="parcelCount" type="number" name="parcelCount" value={formData.parcelCount} onChange={handleChange} className="p-2 border rounded-md w-full" min="1" />
+                            </div>
+                             <div>
+                                <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1">الوزن (كغ)</label>
+                                <input id="weight" type="number" name="weight" value={formData.weight} onChange={handleChange} className="p-2 border rounded-md w-full" min="0" />
+                            </div>
+                             <div className="md:col-span-2">
+                                <label htmlFor="courierName" className="block text-sm font-medium text-gray-700 mb-1">اسم المندوب (اختياري)</label>
+                                <input id="courierName" type="text" name="courierName" value={formData.courierName} onChange={handleChange} className="p-2 border rounded-md w-full" />
+                            </div>
+                            <div className="md:col-span-3">
+                                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                                <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows="2" className="p-2 border rounded-md w-full"></textarea>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset className="border p-4 rounded-md">
+                        <legend className="px-2 font-semibold">التفاصيل المالية</legend>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-5 gap-x-4">
+                                <label className="col-span-1 pt-2 text-sm font-medium text-gray-700">قيمة البضاعة:</label>
+                                <input type="number" name="goodsValue" value={formData.goodsValue} onChange={handleChange} className="col-span-2 p-2 border rounded-md" min="0" />
+                                <select name="goodsCurrency" value={formData.goodsCurrency} onChange={handleChange} className="col-span-2 p-2 border rounded-md bg-white">
+                                    <option value="USD">دولار أمريكي</option>
+                                    <option value="SYP">ليرة سورية</option>
+                                    <option value="TRY">ليرة تركية</option>
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-5 gap-x-4 items-center">
+                                <label className="col-span-1 text-sm font-medium text-gray-700">أجور الشحن:</label>
+                                <input type="number" name="shippingFee" value={formData.shippingFee} onChange={handleChange} className="col-span-2 p-2 border rounded-md" min="0" />
+                                <select name="shippingFeeCurrency" value={formData.shippingFeeCurrency} onChange={handleChange} className="col-span-1 p-2 border rounded-md bg-white">
+                                    <option value="USD">دولار أمريكي</option>
+                                    <option value="SYP">ليرة سورية</option>
+                                    <option value="TRY">ليرة تركية</option>
+                                </select>
+                                <div className="col-span-1 flex gap-4">
+                                    <label className="flex items-center"><input type="radio" name="shippingFeePaymentMethod" value="collect" checked={formData.shippingFeePaymentMethod === 'collect'} onChange={handleChange} className="h-4 w-4" /> <span className="mr-2">تحصيل</span></label>
+                                    <label className="flex items-center"><input type="radio" name="shippingFeePaymentMethod" value="prepaid" checked={formData.shippingFeePaymentMethod === 'prepaid'} onChange={handleChange} className="h-4 w-4" /> <span className="mr-2">مسبق</span></label>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-5 gap-x-4 items-center">
+                                <label className="col-span-1 text-sm font-medium text-gray-700">أجور الحوالة:</label>
+                                <input type="number" name="hwalaFee" value={formData.hwalaFee} onChange={handleChange} className="col-span-2 p-2 border rounded-md" min="0" />
+                                <select name="hwalaFeeCurrency" value={formData.hwalaFeeCurrency} onChange={handleChange} className="col-span-1 p-2 border rounded-md bg-white">
+                                    <option value="USD">دولار أمريكي</option>
+                                    <option value="SYP">ليرة سورية</option>
+                                    <option value="TRY">ليرة تركية</option>
+                                </select>
+                                <div className="col-span-1 flex gap-4">
+                                    <label className="flex items-center"><input type="radio" name="hwalaFeePaymentMethod" value="collect" checked={formData.hwalaFeePaymentMethod === 'collect'} onChange={handleChange} className="h-4 w-4" /> <span className="mr-2">تحصيل</span></label>
+                                    <label className="flex items-center"><input type="radio" name="hwalaFeePaymentMethod" value="prepaid" checked={formData.hwalaFeePaymentMethod === 'prepaid'} onChange={handleChange} className="h-4 w-4" /> <span className="mr-2">مسبق</span></label>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-5 gap-x-4">
+                                <label className="col-span-1 pt-2 text-sm font-medium text-gray-700">أجور المحول:</label>
+                                <input type="number" name="internalTransferFee" value={formData.internalTransferFee} onChange={handleChange} className="col-span-2 p-2 border rounded-md" min="0" />
+                                <select name="internalTransferFeeCurrency" value={formData.internalTransferFeeCurrency} onChange={handleChange} className="col-span-2 p-2 border rounded-md bg-white">
+                                    <option value="USD">دولار أمريكي</option>
+                                    <option value="SYP">ليرة سورية</option>
+                                    <option value="TRY">ليرة تركية</option>
+                                </select>
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <div className="bg-indigo-50 p-4 rounded-md text-center">
+                        <p className="text-lg font-medium text-gray-600">المبلغ الإجمالي المطلوب تحصيله من المستلم:</p>
+                        <div className="text-3xl font-bold text-indigo-700 mt-1 flex justify-center items-center gap-x-4 flex-wrap">
+                           {totalsToCollect.length > 0 ? (
+                                totalsToCollect.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-x-3">
+                                        <span className="whitespace-nowrap">{item}</span>
+                                        {index < totalsToCollect.length - 1 && <span className="text-2xl">+</span>}
+                                    </div>
+                                ))
+                            ) : (
+                                <span>0 USD</span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-4 pt-4">
+                        <button type="button" onClick={closeModal} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">إلغاء</button>
+                        <button type="submit" disabled={isSubmitting} className="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 font-semibold">
+                            {isSubmitting ? 'جاري الحفظ...' : 'حفظ الشحنة'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
