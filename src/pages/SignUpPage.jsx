@@ -1,7 +1,6 @@
 // src/pages/SignUpPage.jsx
 
 import { useState } from 'react';
-// --- 1. Import new functions: sendEmailVerification and signOut ---
 import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
@@ -11,6 +10,7 @@ export default function SignUpPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [phone, setPhone] = useState(''); // --- NEW: State for phone number ---
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -25,22 +25,28 @@ export default function SignUpPage() {
             return;
         }
 
+        // --- NEW: Basic phone number validation ---
+        if (!phone.trim()) {
+            setError('يرجى إدخال رقم الهاتف.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // --- 2. Send the verification email ---
             await sendEmailVerification(user);
 
+            // --- NEW: Save phone number to the user's document ---
             await setDoc(doc(db, 'users', user.uid), {
                 email: user.email,
+                phone: phone.trim(), // Save the phone number
                 role: 'customer'
             });
 
-            // --- 3. Sign the user out until they verify ---
             await signOut(auth);
             
-            // --- 4. Redirect to login page with a message ---
             window.location.href = '/login?message=verify-email';
 
         } catch (err) {
@@ -71,6 +77,18 @@ export default function SignUpPage() {
                             value={email} 
                             onChange={(e) => setEmail(e.target.value)} 
                             required 
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
+                        />
+                    </div>
+                    {/* --- NEW: Phone Number Input Field --- */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">رقم الهاتف</label>
+                        <input 
+                            type="tel" 
+                            value={phone} 
+                            onChange={(e) => setPhone(e.target.value)} 
+                            required 
+                            placeholder="e.g., 0912345678"
                             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
                         />
                     </div>

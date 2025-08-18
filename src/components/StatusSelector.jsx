@@ -1,4 +1,3 @@
-import React from 'react';
 
 const STATUS_OPTIONS = ['تم الاستلام من المرسل', 'قيد النقل', 'وصلت الوجهة', 'تم التسليم', 'مرتجع'];
 const STATUS_COLORS = {

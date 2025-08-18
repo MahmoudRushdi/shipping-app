@@ -25,6 +25,12 @@ export default function AddShipmentModal({ closeModal }) {
         hwalaFeePaymentMethod: 'collect',
         internalTransferFee: 0,
         internalTransferFeeCurrency: 'USD',
+        customFee1Name: '',
+        customFee1Amount: 0,
+        customFee1Currency: 'USD',
+        customFee2Name: '',
+        customFee2Amount: 0,
+        customFee2Currency: 'USD',
         assignedCar: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +84,18 @@ export default function AddShipmentModal({ closeModal }) {
                 totals[formData.hwalaFeeCurrency] = (totals[formData.hwalaFeeCurrency] || 0) + hwalaVal;
             }
         }
+        
+        // إضافة الرسوم المخصصة
+        const customFee1Val = parseFloat(formData.customFee1Amount) || 0;
+        if (customFee1Val > 0 && formData.customFee1Name.trim()) {
+            totals[formData.customFee1Currency] = (totals[formData.customFee1Currency] || 0) + customFee1Val;
+        }
+        
+        const customFee2Val = parseFloat(formData.customFee2Amount) || 0;
+        if (customFee2Val > 0 && formData.customFee2Name.trim()) {
+            totals[formData.customFee2Currency] = (totals[formData.customFee2Currency] || 0) + customFee2Val;
+        }
+        
         const totalStrings = Object.entries(totals).map(([currency, amount]) => {
             return `${amount.toLocaleString()} ${currency}`;
         });
@@ -184,6 +202,30 @@ export default function AddShipmentModal({ closeModal }) {
                                 <label className="col-span-1 pt-2 text-sm font-medium text-gray-700">أجور المحول:</label>
                                 <input type="number" name="internalTransferFee" value={formData.internalTransferFee} onChange={handleChange} className="col-span-2 p-2 border rounded-md" min="0" />
                                 <select name="internalTransferFeeCurrency" value={formData.internalTransferFeeCurrency} onChange={handleChange} className="col-span-2 p-2 border rounded-md bg-white">
+                                    <option value="USD">دولار أمريكي</option>
+                                    <option value="SYP">ليرة سورية</option>
+                                    <option value="TRY">ليرة تركية</option>
+                                </select>
+                            </div>
+                            
+                            {/* Custom Fee 1 */}
+                            <div className="grid grid-cols-5 gap-x-4">
+                                <label className="col-span-1 pt-2 text-sm font-medium text-gray-700">رسوم مخصصة 1:</label>
+                                <input type="text" name="customFee1Name" value={formData.customFee1Name} onChange={handleChange} placeholder="اسم الرسوم" className="col-span-1 p-2 border rounded-md" />
+                                <input type="number" name="customFee1Amount" value={formData.customFee1Amount} onChange={handleChange} placeholder="المبلغ" className="col-span-1 p-2 border rounded-md" min="0" />
+                                <select name="customFee1Currency" value={formData.customFee1Currency} onChange={handleChange} className="col-span-1 p-2 border rounded-md bg-white">
+                                    <option value="USD">دولار أمريكي</option>
+                                    <option value="SYP">ليرة سورية</option>
+                                    <option value="TRY">ليرة تركية</option>
+                                </select>
+                            </div>
+                            
+                            {/* Custom Fee 2 */}
+                            <div className="grid grid-cols-5 gap-x-4">
+                                <label className="col-span-1 pt-2 text-sm font-medium text-gray-700">رسوم مخصصة 2:</label>
+                                <input type="text" name="customFee2Name" value={formData.customFee2Name} onChange={handleChange} placeholder="اسم الرسوم" className="col-span-1 p-2 border rounded-md" />
+                                <input type="number" name="customFee2Amount" value={formData.customFee2Amount} onChange={handleChange} placeholder="المبلغ" className="col-span-1 p-2 border rounded-md" min="0" />
+                                <select name="customFee2Currency" value={formData.customFee2Currency} onChange={handleChange} className="col-span-1 p-2 border rounded-md bg-white">
                                     <option value="USD">دولار أمريكي</option>
                                     <option value="SYP">ليرة سورية</option>
                                     <option value="TRY">ليرة تركية</option>

@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import logo from '../assets/AL-MOSTAKEM-1.png';
+import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
+import AnimatedCard from '../components/AnimatedCard';
+import AnimatedButton from '../components/AnimatedButton';
+import AnimatedLoader from '../components/AnimatedLoader';
+import { motion } from 'framer-motion';
+import { Package, Truck, Route, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const formatMultiCurrency = (shipment) => {
     const totals = {};
@@ -29,34 +36,41 @@ const formatMultiCurrency = (shipment) => {
 };
 
 export default function ManifestPage() {
-  const [routes, setRoutes] = useState([]);
-  const [unassignedShipments, setUnassignedShipments] = useState([]);
+  const navigate = useNavigate();
+  const [trips, setTrips] = useState([]);
+  const [allShipments, setAllShipments] = useState([]);
   const [selectedShipments, setSelectedShipments] = useState([]);
-  const [selectedCar, setSelectedCar] = useState('');
+  const [selectedTrip, setSelectedTrip] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    const routesCollection = collection(db, 'routes');
-    const unsubscribe = onSnapshot(routesCollection, (snapshot) => {
-      const routesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRoutes(routesList);
-    });
-    return () => unsubscribe();
-  }, []);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     setIsLoading(true);
-    const q = query(collection(db, 'shipments'), where("assignedCar", "==", ""));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    
+    // Fetch trips
+    const tripsCollection = collection(db, 'trips');
+    const tripsUnsubscribe = onSnapshot(tripsCollection, (snapshot) => {
+      const tripsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTrips(tripsList);
+    });
+
+    // Fetch shipments
+    const q = query(collection(db, 'shipments'), orderBy('createdAt', 'desc'));
+    const shipmentsUnsubscribe = onSnapshot(q, (snapshot) => {
       const shipmentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUnassignedShipments(shipmentsList);
+      setAllShipments(shipmentsList);
       setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching unassigned shipments: ", error);
+      console.error("Error fetching shipments: ", error);
       setIsLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      tripsUnsubscribe();
+      shipmentsUnsubscribe();
+    };
   }, []);
 
   const handleCheckboxChange = (shipmentId) => {
@@ -67,132 +81,264 @@ export default function ManifestPage() {
     );
   };
 
-  const handleCreateTrip = async () => {
+  const handleSelectAll = () => {
+    if (selectedShipments.length === filteredShipments.length) {
+      setSelectedShipments([]);
+    } else {
+      setSelectedShipments(filteredShipments.map(s => s.id));
+    }
+  };
+
+  const handleAssignShipments = async () => {
     if (selectedShipments.length === 0) {
         alert("يرجى تحديد شحنة واحدة على الأقل.");
         return;
     }
-    if (!selectedCar) {
-        alert("يرجى اختيار سيارة.");
+    if (!selectedTrip) {
+        alert("يرجى اختيار رحلة.");
         return;
     }
 
     setIsSubmitting(true);
     
     try {
-        await addDoc(collection(db, 'trips'), {
-            carName: selectedCar,
-            shipmentIds: selectedShipments,
-            createdAt: serverTimestamp(),
-            expenses: {
-                vehicleRental: 0,
-                driverCommission: 0,
-                other: 0,
-            },
-            // --- This is the corrected line ---
-            status: "قيد الانتظار"
+        const selectedTripData = trips.find(t => t.id === selectedTrip);
+        
+        // Update trip with new shipment IDs
+        const tripRef = doc(db, 'trips', selectedTrip);
+        const currentShipmentIds = selectedTripData.shipmentIds || [];
+        const newShipmentIds = [...currentShipmentIds, ...selectedShipments];
+        
+        await updateDoc(tripRef, {
+            shipmentIds: newShipmentIds
         });
         
+        // Update shipments with trip assignment
         const updatePromises = selectedShipments.map(shipmentId => {
             const shipmentRef = doc(db, 'shipments', shipmentId);
             return updateDoc(shipmentRef, {
-                assignedCar: selectedCar,
+                assignedTrip: selectedTrip,
+                assignedCar: selectedTripData.vehicleNumber || '',
                 status: "قيد النقل"
             });
         });
 
         await Promise.all(updatePromises);
 
-        alert(`تم إنشاء الرحلة بنجاح لـ ${selectedCar} بعدد ${selectedShipments.length} شحنة.`);
+        alert(`تم تخصيص الشحنات للرحلة بنجاح!\n\nالرحلة: ${selectedTripData.tripName || selectedTripData.vehicleNumber}\nعدد الشحنات المضافة: ${selectedShipments.length}\n\nتم تحديث حالة الشحنات إلى "قيد النقل"`);
         
         setSelectedShipments([]);
-        setSelectedCar('');
+        setSelectedTrip('');
 
     } catch (error) {
-        console.error("Error creating trip: ", error);
-        alert("حدث خطأ أثناء إنشاء الرحلة.");
+        console.error("Error assigning shipments: ", error);
+        alert("حدث خطأ أثناء تخصيص الشحنات.");
     }
 
     setIsSubmitting(false);
   };
 
+  // Filter shipments based on status and search term
+  const filteredShipments = allShipments.filter(shipment => {
+    // Only show shipments that are not assigned to any trip
+    const isUnassigned = !shipment.assignedTrip || shipment.assignedTrip === '';
+    
+    const matchesSearch = (shipment.shipmentId && shipment.shipmentId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (shipment.customerName && shipment.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (shipment.governorate && shipment.governorate.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (filterStatus === 'all') return isUnassigned && matchesSearch;
+    if (filterStatus === 'pending') return isUnassigned && matchesSearch && shipment.status === 'pending';
+    if (filterStatus === 'in-transit') return isUnassigned && matchesSearch && shipment.status === 'in-transit';
+    if (filterStatus === 'delivered') return isUnassigned && matchesSearch && shipment.status === 'delivered';
+    
+    return isUnassigned && matchesSearch;
+  });
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="bg-gray-50 min-h-screen p-8 font-sans" dir="rtl">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+      <motion.div 
+        className="max-w-7xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Header */}
+        <motion.div className="mb-8" variants={itemVariants}>
+          <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
-                <img src={logo} alt="شعار الشركة" className="h-20 w-auto" />
-                <h1 className="text-3xl font-bold text-gray-800">إنشاء رحلة / بيان تحميل</h1>
+              <img src={logo} alt="شعار الشركة" className="h-20 w-auto" />
+              <h1 className="text-3xl font-bold text-gray-800">تخصيص الشحنات للرحلات</h1>
             </div>
-            <a href="/dashboard" className="text-sm text-indigo-600 hover:underline">
+            <div className="flex items-center gap-4">
+              <AnimatedButton
+                onClick={() => navigate('/create-trip')}
+                variant="primary"
+                icon={PlusCircleIcon}
+              >
+                إنشاء رحلة جديدة
+              </AnimatedButton>
+              <a href="/dashboard" className="text-sm text-indigo-600 hover:underline">
                 → العودة إلى لوحة التحكم الرئيسية
-            </a>
-        </div>
+              </a>
+            </div>
+          </div>
+        </motion.div>
         
-        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4 bg-gray-50 p-4 rounded-lg">
-                <h2 className="text-xl font-semibold">
-                  تحديد الشحنات ({selectedShipments.length} شحنة محددة)
-                </h2>
-                <div className="flex items-center gap-2">
-                    <select
-                        value={selectedCar}
-                        onChange={(e) => setSelectedCar(e.target.value)}
-                        className="p-2 border rounded-md bg-white w-48"
-                    >
-                        <option value="">اختر سيارة...</option>
-                        {routes.map(route => (
-                          <option key={route.id} value={route.name}>{route.name}</option>
-                        ))}
-                    </select>
-                  <button
-                        onClick={handleCreateTrip}
-                        disabled={isSubmitting || selectedShipments.length === 0 || !selectedCar}
-                        className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400"
-                    >
-                        {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء رحلة'}
-                    </button>
-                </div>
+        <AnimatedCard className="overflow-hidden" delay={0.2}>
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-gray-50 p-4 rounded-lg">
+              <h2 className="text-xl font-semibold">
+                تحديد الشحنات ({selectedShipments.length} شحنة محددة)
+              </h2>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedTrip}
+                  onChange={(e) => setSelectedTrip(e.target.value)}
+                  className="p-2 border rounded-md bg-white w-64"
+                >
+                  <option value="">اختر رحلة...</option>
+                  {trips.filter(t => t.status !== 'تم التسليم').map(trip => (
+                    <option key={trip.id} value={trip.id}>
+                      {trip.tripName || trip.vehicleNumber} - {trip.destination || 'غير محدد'}
+                    </option>
+                  ))}
+                </select>
+                <AnimatedButton
+                  onClick={handleAssignShipments}
+                  disabled={isSubmitting || selectedShipments.length === 0 || !selectedTrip}
+                  variant="primary"
+                >
+                  {isSubmitting ? 'جاري التخصيص...' : 'تخصيص الشحنات'}
+                </AnimatedButton>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
-                {isLoading ? <p className="text-center py-4">جاري تحميل الشحنات...</p> : (
-                    <table className="w-full text-sm text-right">
-                      <thead className="bg-gray-100">
-                            <tr>
-                                <th className="p-3 w-12">تحديد</th>
-                                <th className="p-3">رقم الشحنة</th>
-                                <th className="p-3">العميل</th>
-                                <th className="p-3">المحافظة</th>
-                                <th className="p-3">المبلغ المحصل</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                           {unassignedShipments.map(shipment => (
-                                <tr key={shipment.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-3 text-center">
-                                        <input
-                                            type="checkbox"
-                                            className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            checked={selectedShipments.includes(shipment.id)}
-                                            onChange={() => handleCheckboxChange(shipment.id)}
-                                        />
-                                    </td>
-                                    <td className="p-3 font-medium">{shipment.shipmentId}</td>
-                                    <td className="p-3">{shipment.customerName}</td>
-                                    <td className="p-3">{shipment.governorate}</td>
-                                    <td className="p-3 font-semibold">{formatMultiCurrency(shipment)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-                {!isLoading && unassignedShipments.length === 0 && (
-                    <p className="text-center text-gray-400 py-10">لا توجد شحنات جاهزة للتوزيع حالياً.</p>
-                )}
+            {/* Filters */}
+            <div className="mb-4 flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="ابحث برقم الشحنة، اسم العميل، أو المحافظة..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full p-2 border rounded-md"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="p-2 border rounded-md"
+                >
+                  <option value="all">جميع الشحنات</option>
+                  <option value="pending">معلق</option>
+                  <option value="in-transit">قيد النقل</option>
+                  <option value="delivered">تم التسليم</option>
+                </select>
+                <AnimatedButton
+                  onClick={handleSelectAll}
+                  variant="outline"
+                  size="sm"
+                >
+                  {selectedShipments.length === filteredShipments.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                </AnimatedButton>
+              </div>
             </div>
-        </div>
-      </div>
+
+            {isLoading ? (
+              <div className="p-20 text-center">
+                <AnimatedLoader 
+                  type="ring" 
+                  size="xl" 
+                  color="indigo" 
+                  text="جاري تحميل البيانات..."
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="p-3 w-12">تحديد</th>
+                      <th className="p-3">رقم الشحنة</th>
+                      <th className="p-3">العميل</th>
+                      <th className="p-3">المحافظة</th>
+                      <th className="p-3">الحالة</th>
+                      <th className="p-3">الرحلة المخصصة</th>
+                      <th className="p-3">المبلغ المحصل</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredShipments.map(shipment => (
+                      <tr key={shipment.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3 text-center">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            checked={selectedShipments.includes(shipment.id)}
+                            onChange={() => handleCheckboxChange(shipment.id)}
+                          />
+                        </td>
+                        <td className="p-3 font-medium">{shipment.shipmentId}</td>
+                        <td className="p-3">{shipment.customerName}</td>
+                        <td className="p-3">{shipment.governorate}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                            shipment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            shipment.status === 'in-transit' ? 'bg-blue-100 text-blue-800' :
+                            shipment.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {shipment.status === 'pending' ? 'معلق' :
+                             shipment.status === 'in-transit' ? 'قيد النقل' :
+                             shipment.status === 'delivered' ? 'تم التسليم' : shipment.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          {shipment.assignedTrip ? (
+                            <span className="text-green-600 font-medium">
+                              {trips.find(t => t.id === shipment.assignedTrip)?.tripName || shipment.assignedTrip}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">غير مخصص</span>
+                          )}
+                        </td>
+                        <td className="p-3 font-semibold">{formatMultiCurrency(shipment)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            
+            {!isLoading && filteredShipments.length === 0 && (
+              <motion.div 
+                className="text-center py-20"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">لا توجد شحنات غير مخصصة.</p>
+              </motion.div>
+            )}
+          </div>
+        </AnimatedCard>
+      </motion.div>
     </div>
   );
 }
