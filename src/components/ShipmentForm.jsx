@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AnimatedButton from './AnimatedButton';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 export default function ShipmentForm({ onSubmit, initialData = null, isLoading = false }) {
     const [formData, setFormData] = useState(initialData || {
@@ -26,6 +28,16 @@ export default function ShipmentForm({ onSubmit, initialData = null, isLoading =
         notes: ''
     });
 
+    const [customers, setCustomers] = useState([]);
+    const [customerType, setCustomerType] = useState('new');
+    const [selectedCustomer, setSelectedCustomer] = useState('');
+    const [recipientRole, setRecipientRole] = useState('receiver');
+    const [recipientExistingRole, setRecipientExistingRole] = useState('receiver');
+    const [senderType, setSenderType] = useState('new');
+    const [selectedSender, setSelectedSender] = useState('');
+    const [senderRole, setSenderRole] = useState('sender');
+    const [senderExistingRole, setSenderExistingRole] = useState('sender');
+
     // Generate new shipment ID if not provided in initialData
     useEffect(() => {
         if (!initialData?.shipmentId) {
@@ -35,6 +47,20 @@ export default function ShipmentForm({ onSubmit, initialData = null, isLoading =
             }));
         }
     }, [initialData]);
+
+    // Fetch registered customers
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                const customersSnapshot = await getDocs(collection(db, 'customers'));
+                const list = customersSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                setCustomers(list);
+            } catch (err) {
+                console.error('Error fetching customers:', err);
+            }
+        };
+        fetchCustomers();
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -47,6 +73,46 @@ export default function ShipmentForm({ onSubmit, initialData = null, isLoading =
     const handleSubmit = (e) => {
         e.preventDefault();
         onSubmit(formData);
+    };
+
+    const handleCustomerTypeChange = (type) => {
+        setCustomerType(type);
+        if (type === 'new') {
+            setSelectedCustomer('');
+            setFormData(prev => ({ ...prev, customerName: '', recipientPhone: '' }));
+        }
+    };
+
+    const handleCustomerSelect = (customerId) => {
+        setSelectedCustomer(customerId);
+        const customer = customers.find(c => c.id === customerId);
+        if (customer) {
+            setFormData(prev => ({
+                ...prev,
+                customerName: customer.name || '',
+                recipientPhone: customer.phone || ''
+            }));
+        }
+    };
+
+    const handleSenderTypeChange = (type) => {
+        setSenderType(type);
+        if (type === 'new') {
+            setSelectedSender('');
+            setFormData(prev => ({ ...prev, senderName: '', senderPhone: '' }));
+        }
+    };
+
+    const handleSenderSelect = (customerId) => {
+        setSelectedSender(customerId);
+        const customer = customers.find(c => c.id === customerId);
+        if (customer) {
+            setFormData(prev => ({
+                ...prev,
+                senderName: customer.name || '',
+                senderPhone: customer.phone || ''
+            }));
+        }
     };
 
     const itemVariants = {
@@ -90,63 +156,177 @@ export default function ShipmentForm({ onSubmit, initialData = null, isLoading =
             {/* Customer Information */}
             <motion.div variants={itemVariants}>
                 <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">معلومات المستلم</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">اسم المستلم</label>
-                        <input
-                            type="text"
-                            name="customerName"
-                            value={formData.customerName}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                            placeholder="اسم المستلم"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المستلم</label>
-                        <input
-                            type="tel"
-                            name="recipientPhone"
-                            value={formData.recipientPhone}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                            placeholder="رقم الهاتف"
-                        />
-                    </div>
+                <div className="mb-3 flex gap-6 items-center">
+                    <label className="flex items-center gap-2">
+                        <input type="radio" name="customerType" value="new" checked={customerType === 'new'} onChange={(e) => handleCustomerTypeChange(e.target.value)} />
+                        عميل جديد
+                    </label>
+                    <label className="flex items-center gap-2">
+                        <input type="radio" name="customerType" value="existing" checked={customerType === 'existing'} onChange={(e) => handleCustomerTypeChange(e.target.value)} />
+                        عميل مسجل
+                    </label>
                 </div>
+
+                {customerType === 'existing' ? (
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="flex gap-6 items-center">
+                            <label className="flex items-center gap-2">
+                                <input type="radio" name="recipientExistingRole" value="receiver" checked={recipientExistingRole === 'receiver'} onChange={(e) => setRecipientExistingRole(e.target.value)} />
+                                مستلم
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input type="radio" name="recipientExistingRole" value="sender" checked={recipientExistingRole === 'sender'} onChange={(e) => setRecipientExistingRole(e.target.value)} />
+                                مرسل
+                            </label>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">اختر العميل</label>
+                            <select
+                                value={selectedCustomer}
+                                onChange={(e) => handleCustomerSelect(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                            >
+                                <option value="">اختر عميل...</option>
+                                {customers
+                                    .filter(c => {
+                                        if (recipientExistingRole === 'receiver') return c.type === 'receiver' || c.type === 'both';
+                                        return c.type === 'sender' || c.type === 'both';
+                                    })
+                                    .map(c => (
+                                        <option key={c.id} value={c.id}>{c.name} - {c.phone}{c.type ? ` (${c.type === 'sender' ? 'مرسل' : c.type === 'receiver' ? 'مستلم' : 'كلاهما'})` : ''}</option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">نوع العميل</label>
+                            <div className="flex gap-6 items-center">
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="recipientRole" value="receiver" checked={recipientRole === 'receiver'} onChange={(e) => setRecipientRole(e.target.value)} />
+                                    مستلم
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="recipientRole" value="sender" checked={recipientRole === 'sender'} onChange={(e) => setRecipientRole(e.target.value)} />
+                                    مرسل
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">اسم المستلم</label>
+                            <input
+                                type="text"
+                                name="customerName"
+                                value={formData.customerName}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                placeholder="اسم المستلم"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المستلم</label>
+                            <input
+                                type="tel"
+                                name="recipientPhone"
+                                value={formData.recipientPhone}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                placeholder="رقم الهاتف"
+                            />
+                        </div>
+                    </div>
+                )}
             </motion.div>
 
             {/* Sender Information */}
             <motion.div variants={itemVariants}>
                 <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">معلومات المرسل</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">اسم المرسل</label>
-                        <input
-                            type="text"
-                            name="senderName"
-                            value={formData.senderName}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                            placeholder="اسم المرسل"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المرسل</label>
-                        <input
-                            type="tel"
-                            name="senderPhone"
-                            value={formData.senderPhone}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                            placeholder="رقم الهاتف"
-                        />
-                    </div>
+                <div className="mb-3 flex gap-6 items-center">
+                    <label className="flex items-center gap-2">
+                        <input type="radio" name="senderType" value="new" checked={senderType === 'new'} onChange={(e) => handleSenderTypeChange(e.target.value)} />
+                        عميل جديد
+                    </label>
+                    <label className="flex items-center gap-2">
+                        <input type="radio" name="senderType" value="existing" checked={senderType === 'existing'} onChange={(e) => handleSenderTypeChange(e.target.value)} />
+                        عميل مسجل
+                    </label>
                 </div>
+
+                {senderType === 'existing' ? (
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="flex gap-6 items-center">
+                            <label className="flex items-center gap-2">
+                                <input type="radio" name="senderExistingRole" value="sender" checked={senderExistingRole === 'sender'} onChange={(e) => setSenderExistingRole(e.target.value)} />
+                                مرسل
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input type="radio" name="senderExistingRole" value="receiver" checked={senderExistingRole === 'receiver'} onChange={(e) => setSenderExistingRole(e.target.value)} />
+                                مستلم
+                            </label>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">اختر المرسل</label>
+                            <select
+                                value={selectedSender}
+                                onChange={(e) => handleSenderSelect(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                            >
+                                <option value="">اختر مرسل...</option>
+                                {customers
+                                    .filter(c => {
+                                        if (senderExistingRole === 'sender') return c.type === 'sender' || c.type === 'both';
+                                        return c.type === 'receiver' || c.type === 'both';
+                                    })
+                                    .map(c => (
+                                        <option key={c.id} value={c.id}>{c.name} - {c.phone}{c.type ? ` (${c.type === 'sender' ? 'مرسل' : c.type === 'receiver' ? 'مستلم' : 'كلاهما'})` : ''}</option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">نوع العميل</label>
+                            <div className="flex gap-6 items-center">
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="senderRole" value="sender" checked={senderRole === 'sender'} onChange={(e) => setSenderRole(e.target.value)} />
+                                    مرسل
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="senderRole" value="receiver" checked={senderRole === 'receiver'} onChange={(e) => setSenderRole(e.target.value)} />
+                                    مستلم
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">اسم المرسل</label>
+                            <input
+                                type="text"
+                                name="senderName"
+                                value={formData.senderName}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                placeholder="اسم المرسل"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المرسل</label>
+                            <input
+                                type="tel"
+                                name="senderPhone"
+                                value={formData.senderPhone}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                placeholder="رقم الهاتف"
+                            />
+                        </div>
+                    </div>
+                )}
             </motion.div>
 
             {/* Location and Package Details */}
@@ -162,21 +342,19 @@ export default function ShipmentForm({ onSubmit, initialData = null, isLoading =
                             required
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                         >
-                            <option value="">اختر المحافظة</option>
-                            <option value="دمشق">دمشق</option>
-                            <option value="ريف دمشق">ريف دمشق</option>
-                            <option value="حلب">حلب</option>
-                            <option value="حمص">حمص</option>
-                            <option value="حماة">حماة</option>
-                            <option value="اللاذقية">اللاذقية</option>
-                            <option value="طرطوس">طرطوس</option>
-                            <option value="إدلب">إدلب</option>
-                            <option value="دير الزور">دير الزور</option>
-                            <option value="الحسكة">الحسكة</option>
-                            <option value="الرقة">الرقة</option>
-                            <option value="درعا">درعا</option>
-                            <option value="السويداء">السويداء</option>
-                            <option value="القنيطرة">القنيطرة</option>
+                            <option value="">اختر المدينة</option>
+                            <option value="نيقوسيا">نيقوسيا</option>
+                            <option value="فاماغوستا">فاماغوستا</option>
+                            <option value="كيرينيا">كيرينيا</option>
+                            <option value="مورفو">مورفو</option>
+                            <option value="إسكله">إسكله</option>
+                            <option value="لفكه">لفكه</option>
+                            <option value="غوزيليورت">غوزيليورت</option>
+                            <option value="ديبكارباز">ديبكارباز</option>
+                            <option value="بوغاز">بوغاز</option>
+                            <option value="أكدوغان">أكدوغان</option>
+                            <option value="أركان">أركان</option>
+                            <option value="كارباز">كارباز</option>
                         </select>
                     </div>
                     <div>

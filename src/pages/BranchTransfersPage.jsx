@@ -1,656 +1,960 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
-import { ArrowLeftIcon, PlusIcon, DownloadIcon, FilterIcon } from '../components/Icons';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, where, getDocs, runTransaction } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage';
+import { ArrowLeftIcon, PlusIcon, DownloadIcon, FilterIcon, SearchIcon, TrashIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedLoader from '../components/AnimatedLoader';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, Building, ArrowRight, Calendar, AlertTriangle } from 'lucide-react';
+import { 
+  DollarSign, 
+  TrendingUp, 
+  TrendingDown, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  Users, 
+  Calendar,
+  Filter,
+  Search,
+  Plus,
+  Download,
+  Eye,
+  Edit,
+  Trash2,
+  Printer,
+  Wallet,
+  CreditCard,
+  Banknote,
+  Receipt,
+  Building2,
+  ArrowRightLeft,
+  CheckCircle,
+  Clock,
+  XCircle
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-export default function BranchTransfersPage() {
-    const navigate = useNavigate();
-    const [transfers, setTransfers] = useState([]);
-    const [branches, setBranches] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isAddingTransfer, setIsAddingTransfer] = useState(false);
+// Function to generate automatic transfer number
+const generateTransferNumber = async () => {
+  try {
+    const counterRef = doc(db, 'counters', 'transfer_counter');
     
-    // Filters
-    const [selectedFromBranch, setSelectedFromBranch] = useState('');
-    const [selectedToBranch, setSelectedToBranch] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('');
-    const [dateRange, setDateRange] = useState({ start: '', end: '' });
-    const [minAmount, setMinAmount] = useState(0);
+    const newCounter = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists()) {
+        transaction.set(counterRef, { count: 1 });
+        return 1;
+      } else {
+        const newCount = counterDoc.data().count + 1;
+        transaction.update(counterRef, { count: newCount });
+        return newCount;
+      }
+    });
     
-    // New transfer form
-    const [newTransfer, setNewTransfer] = useState({
-        fromBranch: '',
-        toBranch: '',
-        amount: '',
-        currency: 'USD',
-        description: '',
-        transferType: 'payment', // payment = دفع، collection = تحصيل
-        transferMethod: '',
-        referenceNumber: '',
-        notes: ''
-    });
+    return `TR-${newCounter.toString().padStart(5, '0')}`;
+  } catch (error) {
+    console.error('Error generating transfer number:', error);
+    return `TR-${Date.now().toString().slice(-5)}`;
+  }
+};
 
-    useEffect(() => {
-        setIsLoading(true);
+// Modal for adding/editing transfers
+function TransferModal({ isOpen, onClose, onSave, transfer = null, branches = [] }) {
+  const { tr } = useLanguage();
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    fromBranch: '',
+    toBranch: '',
+    amount: '',
+    currency: 'USD',
+    transferType: 'send',
+    description: '',
+    transferNumber: '',
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5)
+  });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const initializeForm = async () => {
+      if (transfer) {
+        // Editing existing transfer
+        setFormData({
+          fromBranch: transfer.fromBranch || '',
+          toBranch: transfer.toBranch || '',
+          amount: transfer.amount?.toString() || '',
+          currency: transfer.currency || 'USD',
+          transferType: transfer.transferType || 'send',
+          description: transfer.description || '',
+          transferNumber: transfer.transferNumber || '',
+          date: transfer.date || new Date().toISOString().split('T')[0],
+          time: transfer.time || new Date().toTimeString().slice(0, 5)
+        });
+      } else {
+        // Adding new transfer - generate transfer number
+        const transferNumber = await generateTransferNumber();
+        setFormData({
+          fromBranch: '',
+          toBranch: '',
+          amount: '',
+          currency: 'USD',
+          transferType: 'send',
+          description: '',
+          transferNumber: transferNumber,
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toTimeString().slice(0, 5)
+        });
+      }
+      setErrors({});
+    };
+
+    if (isOpen) {
+      initializeForm();
+    }
+  }, [transfer, isOpen]);
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      newErrors.amount = tr('pleaseEnterAmount');
+    }
+    
+    if (!formData.description.trim()) {
+      newErrors.description = tr('pleaseEnterDescription');
+    }
+    
+    if (!formData.fromBranch) {
+      newErrors.fromBranch = tr('pleaseSelectFromBranch');
+    }
+    
+    if (!formData.toBranch) {
+      newErrors.toBranch = tr('pleaseSelectToBranch');
+    }
+    
+    if (formData.fromBranch === formData.toBranch) {
+      newErrors.toBranch = tr('branchesCannotBeSame');
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const transferData = {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        createdAt: new Date(),
+        createdBy: auth.currentUser?.email || 'unknown',
+        status: 'pending'
+      };
+
+      if (transfer) {
+        await updateDoc(doc(db, 'branch_transfers', transfer.id), transferData);
+      } else {
+        await addDoc(collection(db, 'branch_transfers'), transferData);
+      }
+      
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Error saving transfer:', error);
+      alert(transfer ? tr('errorUpdatingTransfer') : tr('errorAddingTransfer'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">
+          {transfer ? tr('editTransfer') : tr('addTransfer')}
+        </h2>
         
-        // Fetch transfers
-        const transfersCollection = collection(db, 'financial_transactions');
-        const transfersQuery = query(
-            transfersCollection, 
-            where('type', '==', 'transfer'),
-            orderBy('createdAt', 'desc')
-        );
-        const transfersUnsubscribe = onSnapshot(transfersQuery, (snapshot) => {
-            const transfersData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setTransfers(transfersData);
-        });
+                 <form onSubmit={handleSubmit} className="space-y-4">
+           {branches.length === 0 && (
+             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+               <div className="flex items-center">
+                 <div className="flex-shrink-0">
+                   <Building2 className="h-5 w-5 text-yellow-400" />
+                 </div>
+                 <div className="mr-3">
+                   <h3 className="text-sm font-medium text-yellow-800">
+                     {tr('noBranchesAvailable')}
+                   </h3>
+                   <div className="mt-2 text-sm text-yellow-700">
+                     <p>{tr('pleaseAddBranchesFirst')}</p>
+                     <button
+                       type="button"
+                       onClick={() => {
+                         onClose();
+                         navigate('/branches');
+                       }}
+                       className="mt-2 inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-yellow-800 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                     >
+                       <Building2 className="w-4 h-4 ml-1" />
+                       {tr('goToBranchManagement')}
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           )}
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('fromBranch')} *
+              </label>
+                             <select
+                 value={formData.fromBranch}
+                 onChange={(e) => setFormData({ ...formData, fromBranch: e.target.value })}
+                 className={`w-full p-2 border rounded-md ${errors.fromBranch ? 'border-red-500' : 'border-gray-300'}`}
+                 required
+               >
+                 <option value="">{tr('selectBranch')}</option>
+                 {branches.length > 0 ? (
+                   branches.map((branch, index) => (
+                     <option key={index} value={branch.branchName}>{branch.branchName}</option>
+                   ))
+                 ) : (
+                   <option value="" disabled>{tr('noBranchesAvailable')}</option>
+                 )}
+               </select>
+              {errors.fromBranch && <p className="text-red-500 text-sm mt-1">{errors.fromBranch}</p>}
+            </div>
 
-        // Fetch branches
-        const branchesCollection = collection(db, 'branch_accounts');
-        const branchesUnsubscribe = onSnapshot(branchesCollection, (snapshot) => {
-            const branchesData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setBranches(branchesData);
-            setIsLoading(false);
-        });
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('toBranch')} *
+              </label>
+                             <select
+                 value={formData.toBranch}
+                 onChange={(e) => setFormData({ ...formData, toBranch: e.target.value })}
+                 className={`w-full p-2 border rounded-md ${errors.toBranch ? 'border-red-500' : 'border-gray-300'}`}
+                 required
+               >
+                 <option value="">{tr('selectBranch')}</option>
+                 {branches.length > 0 ? (
+                   branches.map((branch, index) => (
+                     <option key={index} value={branch.branchName}>{branch.branchName}</option>
+                   ))
+                 ) : (
+                   <option value="" disabled>{tr('noBranchesAvailable')}</option>
+                 )}
+               </select>
+              {errors.toBranch && <p className="text-red-500 text-sm mt-1">{errors.toBranch}</p>}
+            </div>
+          </div>
 
-        return () => {
-            transfersUnsubscribe();
-            branchesUnsubscribe();
-        };
-    }, []);
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('amount')} *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                className={`w-full p-2 border rounded-md ${errors.amount ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder={tr('enterAmount')}
+                required
+              />
+              {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount}</p>}
+            </div>
 
-    // Filter transfers
-    const filteredTransfers = transfers.filter(transfer => {
-        const matchesFromBranch = !selectedFromBranch || transfer.fromBranch === selectedFromBranch;
-        const matchesToBranch = !selectedToBranch || transfer.toBranch === selectedToBranch;
-        const matchesStatus = !selectedStatus || transfer.status === selectedStatus;
-        const matchesDate = !dateRange.start || !dateRange.end || 
-            (transfer.date >= dateRange.start && transfer.date <= dateRange.end);
-        const matchesAmount = transfer.amount >= minAmount;
-        
-        return matchesFromBranch && matchesToBranch && matchesStatus && matchesDate && matchesAmount;
-    });
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('currency')} *
+              </label>
+              <select
+                value={formData.currency}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-md"
+                required
+              >
+                <option value="USD">{tr('usd')}</option>
+                <option value="TRY">{tr('try')}</option>
+                <option value="SYP">{tr('syp')}</option>
+              </select>
+            </div>
+          </div>
 
-    // Calculate statistics
-    const totalTransfers = filteredTransfers.length;
-    const totalAmount = filteredTransfers.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-    const completedTransfers = filteredTransfers.filter(t => t.status === 'completed').length;
-    const pendingTransfers = filteredTransfers.filter(t => t.status === 'pending').length;
-
-    const handleAddTransfer = async (e) => {
-        e.preventDefault();
-        
-        if (!newTransfer.fromBranch || !newTransfer.toBranch || !newTransfer.amount || !newTransfer.description) {
-            alert('يرجى إدخال الفرع المرسل والفرع المستلم والمبلغ والوصف');
-            return;
-        }
-
-        if (newTransfer.fromBranch === newTransfer.toBranch) {
-            alert('لا يمكن إجراء عملية زمم لنفس الفرع');
-            return;
-        }
-
-        setIsAddingTransfer(true);
-
-        try {
-            const transferData = {
-                ...newTransfer,
-                amount: parseFloat(newTransfer.amount),
-                date: new Date().toISOString().split('T')[0],
-                type: 'transfer',
-                status: 'completed',
-                createdBy: 'current_user_id', // TODO: Get from auth
-                createdAt: serverTimestamp()
-            };
-
-            await addDoc(collection(db, 'financial_transactions'), transferData);
-
-            // Reset form
-            setNewTransfer({
-                fromBranch: '',
-                toBranch: '',
-                amount: '',
-                currency: 'USD',
-                description: '',
-                transferType: 'payment',
-                transferMethod: '',
-                referenceNumber: '',
-                notes: ''
-            });
-
-            alert('تم إضافة عملية الزمم بنجاح!');
-        } catch (error) {
-            console.error('Error adding transfer:', error);
-            alert('حدث خطأ أثناء إضافة عملية الزمم');
-        }
-
-        setIsAddingTransfer(false);
-    };
-
-    const handleExport = async () => {
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('عمليات زمم');
-
-        // Define columns
-        sheet.columns = [
-            { header: 'التاريخ', key: 'date', width: 15 },
-            { header: 'الفرع المرسل', key: 'fromBranch', width: 20 },
-            { header: 'الفرع المستلم', key: 'toBranch', width: 20 },
-            { header: 'المبلغ', key: 'amount', width: 15 },
-            { header: 'العملة', key: 'currency', width: 10 },
-            { header: 'نوع العملية', key: 'transferType', width: 15 },
-            { header: 'الوصف', key: 'description', width: 30 },
-            { header: 'طريقة التحويل', key: 'transferMethod', width: 20 },
-            { header: 'رقم المرجع', key: 'referenceNumber', width: 20 },
-            { header: 'الحالة', key: 'status', width: 15 },
-            { header: 'ملاحظات', key: 'notes', width: 25 }
-        ];
-
-        // Add header
-        const headerRow = sheet.addRow([
-            'التاريخ', 'الفرع المرسل', 'الفرع المستلم', 'المبلغ', 'العملة', 
-            'نوع العملية', 'الوصف', 'طريقة التحويل', 'رقم المرجع', 'الحالة', 'ملاحظات'
-        ]);
-
-        // Style header
-        headerRow.eachCell((cell) => {
-            cell.style = {
-                font: { bold: true, color: { argb: 'FFFFFFFF' } },
-                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } },
-                alignment: { horizontal: 'center', vertical: 'middle' }
-            };
-        });
-
-        // Add data
-        filteredTransfers.forEach(transfer => {
-            const row = sheet.addRow([
-                transfer.date || 'N/A',
-                transfer.fromBranch || 'N/A',
-                transfer.toBranch || 'N/A',
-                transfer.amount,
-                transfer.currency,
-                transfer.transferType === 'payment' ? 'دفع' : 'تحصيل',
-                transfer.description,
-                transfer.transferMethod || 'غير محدد',
-                transfer.referenceNumber || 'غير محدد',
-                transfer.status === 'completed' ? 'مكتمل' : 'معلق',
-                transfer.notes || ''
-            ]);
-
-            // Style data rows
-            row.eachCell((cell) => {
-                cell.style = {
-                    alignment: { horizontal: 'center', vertical: 'middle' }
-                };
-            });
-        });
-
-        // Save file
-        const buffer = await workbook.xlsx.writeBuffer();
-        saveAs(new Blob([buffer]), `عمليات_زمم_${new Date().toISOString().split('T')[0]}.xlsx`);
-    };
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 }
-    };
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
-            <motion.div 
-                className="max-w-7xl mx-auto"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {tr('transferType')} *
+            </label>
+            <select
+              value={formData.transferType}
+              onChange={(e) => setFormData({ ...formData, transferType: e.target.value })}
+              className="w-full p-2 border border-gray-300 rounded-md"
+              required
             >
-                {/* Header */}
-                <motion.div className="mb-8" variants={itemVariants}>
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <AnimatedButton
-                                onClick={() => navigate('/dashboard')}
-                                variant="outline"
-                                icon={ArrowLeftIcon}
-                                size="sm"
-                            >
-                                العودة للوحة التحكم
-                            </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">عمليات زمم</h1>
+              <option value="send">{tr('sendTransfer')}</option>
+              <option value="receive">{tr('receiveTransfer')}</option>
+              <option value="confirm">{tr('confirmTransfer')}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {tr('description')} *
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className={`w-full p-2 border rounded-md ${errors.description ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder={tr('enterDescription')}
+              rows="3"
+              required
+            />
+            {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('transferNumber')}
+              </label>
+              <input
+                type="text"
+                value={formData.transferNumber}
+                readOnly
+                className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
+                placeholder={tr('autoGenerated')}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {tr('transferNumberAutoGenerated')}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('transferDate')}
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {tr('transferTime')}
+              </label>
+              <input
+                type="time"
+                value={formData.time}
+                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-4 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+            >
+              {tr('cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 font-semibold"
+            >
+              {isSubmitting ? tr('saving') : (transfer ? tr('update') : tr('add'))}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function BranchTransfersPage() {
+  const navigate = useNavigate();
+  const { tr } = useLanguage();
+  const [transfers, setTransfers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState(null);
+  const [filters, setFilters] = useState({
+    fromBranch: '',
+    toBranch: '',
+    transferType: '',
+    currency: '',
+    dateFrom: '',
+    dateTo: '',
+    amountFrom: '',
+    amountTo: ''
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    setIsLoading(true);
+    
+    // Fetch transfers
+    const transfersRef = collection(db, 'branch_transfers');
+    const transfersQuery = query(transfersRef, orderBy('createdAt', 'desc'));
+    const transfersUnsubscribe = onSnapshot(transfersQuery, (snapshot) => {
+      const transfersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setTransfers(transfersData);
+      setIsLoading(false);
+    });
+
+    // Fetch branches
+    const branchesRef = collection(db, 'branches');
+    const branchesUnsubscribe = onSnapshot(branchesRef, (snapshot) => {
+      const branchesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // If no branches exist, create default branches
+      if (branchesData.length === 0) {
+        createDefaultBranches();
+      } else {
+        setBranches(branchesData);
+      }
+    });
+
+    return () => {
+      transfersUnsubscribe();
+      branchesUnsubscribe();
+    };
+  }, []);
+
+  // Function to create default branches
+  const createDefaultBranches = async () => {
+    try {
+      const defaultBranches = [
+        {
+          branchName: 'حلب',
+          location: 'حلب، سوريا',
+          phone: '+963-21-1234567',
+          managerName: 'مدير فرع حلب',
+          managerPhone: '+963-21-1234567',
+          status: 'active',
+          notes: 'الفرع الرئيسي في حلب'
+        },
+        {
+          branchName: 'اللاذقية',
+          location: 'اللاذقية، سوريا',
+          phone: '+963-41-1234567',
+          managerName: 'مدير فرع اللاذقية',
+          managerPhone: '+963-41-1234567',
+          status: 'active',
+          notes: 'فرع اللاذقية'
+        },
+        {
+          branchName: 'دمشق',
+          location: 'دمشق، سوريا',
+          phone: '+963-11-1234567',
+          managerName: 'مدير فرع دمشق',
+          managerPhone: '+963-11-1234567',
+          status: 'active',
+          notes: 'فرع دمشق'
+        },
+        {
+          branchName: 'حمص',
+          location: 'حمص، سوريا',
+          phone: '+963-31-1234567',
+          managerName: 'مدير فرع حمص',
+          managerPhone: '+963-31-1234567',
+          status: 'active',
+          notes: 'فرع حمص'
+        }
+      ];
+
+      // Add default branches to Firestore
+      for (const branch of defaultBranches) {
+        await addDoc(collection(db, 'branches'), {
+          ...branch,
+          createdAt: new Date()
+        });
+      }
+      
+      console.log('Default branches created successfully');
+    } catch (error) {
+      console.error('Error creating default branches:', error);
+    }
+  };
+
+  // Calculate statistics
+  const calculateStats = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    
+    const todayTransfers = transfers.filter(t => t.date === today);
+    const thisMonthTransfers = transfers.filter(t => t.date.startsWith(thisMonth));
+    
+    const totalSent = transfers.filter(t => t.transferType === 'send').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const totalReceived = transfers.filter(t => t.transferType === 'receive').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const totalConfirmed = transfers.filter(t => t.transferType === 'confirm').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const pendingTransfers = transfers.filter(t => t.status === 'pending').length;
+    
+    return {
+      totalSent,
+      totalReceived,
+      totalConfirmed,
+      pendingTransfers,
+      todayTransfers: todayTransfers.length,
+      thisMonthTransfers: thisMonthTransfers.length,
+      totalTransfers: transfers.length
+    };
+  };
+
+  const stats = calculateStats();
+
+  // Filter transfers
+  const filteredTransfers = transfers.filter(transfer => {
+    const matchesFromBranch = !filters.fromBranch || transfer.fromBranch === filters.fromBranch;
+    const matchesToBranch = !filters.toBranch || transfer.toBranch === filters.toBranch;
+    const matchesTransferType = !filters.transferType || transfer.transferType === filters.transferType;
+    const matchesCurrency = !filters.currency || transfer.currency === filters.currency;
+    const matchesDateFrom = !filters.dateFrom || transfer.date >= filters.dateFrom;
+    const matchesDateTo = !filters.dateTo || transfer.date <= filters.dateTo;
+    const matchesAmountFrom = !filters.amountFrom || transfer.amount >= parseFloat(filters.amountFrom);
+    const matchesAmountTo = !filters.amountTo || transfer.amount <= parseFloat(filters.amountTo);
+    const matchesSearch = !searchTerm || 
+      transfer.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transfer.fromBranch?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transfer.toBranch?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transfer.transferNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesFromBranch && matchesToBranch && matchesTransferType && 
+           matchesCurrency && matchesDateFrom && matchesDateTo && 
+           matchesAmountFrom && matchesAmountTo && matchesSearch;
+  });
+
+  const handleDeleteTransfer = async (transferId) => {
+    if (window.confirm(tr('confirmDeleteTransfer'))) {
+      try {
+        await deleteDoc(doc(db, 'branch_transfers', transferId));
+        alert(tr('transferDeletedSuccess'));
+      } catch (error) {
+        console.error('Error deleting transfer:', error);
+        alert(tr('errorDeletingTransfer'));
+      }
+    }
+  };
+
+  const handleExport = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('عمليات الزمم');
+    
+    // Add headers
+    sheet.columns = [
+      { header: 'التاريخ', key: 'date', width: 12 },
+      { header: 'الوقت', key: 'time', width: 10 },
+      { header: 'رقم الحوالة', key: 'transferNumber', width: 15 },
+      { header: 'الفرع المرسل', key: 'fromBranch', width: 20 },
+      { header: 'الفرع المستقبل', key: 'toBranch', width: 20 },
+      { header: 'نوع العملية', key: 'transferType', width: 15 },
+      { header: 'المبلغ', key: 'amount', width: 15 },
+      { header: 'العملة', key: 'currency', width: 10 },
+      { header: 'الوصف', key: 'description', width: 30 },
+      { header: 'الحالة', key: 'status', width: 12 }
+    ];
+
+    // Add data
+    filteredTransfers.forEach(transfer => {
+      sheet.addRow({
+        date: transfer.date,
+        time: transfer.time,
+        transferNumber: transfer.transferNumber || '',
+        fromBranch: transfer.fromBranch || '',
+        toBranch: transfer.toBranch || '',
+        transferType: transfer.transferType === 'send' ? 'إرسال' : 
+                     transfer.transferType === 'receive' ? 'استلام' : 'تأكيد',
+        amount: transfer.amount,
+        currency: transfer.currency,
+        description: transfer.description,
+        status: transfer.status === 'pending' ? 'معلق' : 
+               transfer.status === 'confirmed' ? 'مؤكد' : 'مكتمل'
+      });
+    });
+
+    // Save file
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `عمليات_الزمم_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const getTransferIcon = (type) => {
+    switch (type) {
+      case 'send': return <ArrowUpRight className="w-5 h-5 text-blue-600" />;
+      case 'receive': return <ArrowDownLeft className="w-5 h-5 text-green-600" />;
+      case 'confirm': return <CheckCircle className="w-5 h-5 text-purple-600" />;
+      default: return <ArrowRightLeft className="w-5 h-5 text-gray-600" />;
+    }
+  };
+
+  const getTransferColor = (type) => {
+    switch (type) {
+      case 'send': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'receive': return 'text-green-600 bg-green-50 border-green-200';
+      case 'confirm': return 'text-purple-600 bg-purple-50 border-purple-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
+      case 'confirmed': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'completed': return <CheckCircle className="w-4 h-4 text-blue-600" />;
+      default: return <XCircle className="w-4 h-4 text-red-600" />;
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+      <motion.div 
+        className="max-w-7xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Header */}
+        <motion.div className="mb-8" variants={itemVariants}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <AnimatedButton
+                onClick={() => navigate('/dashboard')}
+                variant="outline"
+                icon={ArrowLeftIcon}
+                size="sm"
+              >
+                {tr('backToDashboard')}
+              </AnimatedButton>
+              <h1 className="text-3xl font-bold gradient-text">{tr('branchTransfers')}</h1>
+            </div>
+            <div className="flex gap-3">
+              <AnimatedButton
+                onClick={handleExport}
+                variant="outline"
+                icon={DownloadIcon}
+              >
+                {tr('exportTransfers')}
+              </AnimatedButton>
+              <AnimatedButton
+                onClick={() => setIsModalOpen(true)}
+                variant="primary"
+                icon={PlusIcon}
+              >
+                {tr('addTransfer')}
+              </AnimatedButton>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Statistics Cards */}
+        <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={itemVariants}>
+          <AnimatedCard className="p-6" delay={0.1}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{tr('totalSent')}</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.totalSent.toLocaleString()} USD</p>
+              </div>
+              <ArrowUpRight className="w-8 h-8 text-blue-600" />
+            </div>
+          </AnimatedCard>
+
+          <AnimatedCard className="p-6" delay={0.2}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{tr('totalReceived')}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.totalReceived.toLocaleString()} USD</p>
+              </div>
+              <ArrowDownLeft className="w-8 h-8 text-green-600" />
+            </div>
+          </AnimatedCard>
+
+          <AnimatedCard className="p-6" delay={0.3}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{tr('pendingTransfers')}</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pendingTransfers}</p>
+              </div>
+              <Clock className="w-8 h-8 text-yellow-600" />
+            </div>
+          </AnimatedCard>
+
+          <AnimatedCard className="p-6" delay={0.4}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{tr('totalTransfers')}</p>
+                <p className="text-2xl font-bold text-indigo-600">{stats.totalTransfers}</p>
+              </div>
+              <Building2 className="w-8 h-8 text-indigo-600" />
+            </div>
+          </AnimatedCard>
+        </motion.div>
+
+        {/* Filters */}
+        <motion.div className="mb-6" variants={itemVariants}>
+          <AnimatedCard className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('filterByFromBranch')}</label>
+                                 <select
+                   value={filters.fromBranch}
+                   onChange={(e) => setFilters({ ...filters, fromBranch: e.target.value })}
+                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                 >
+                   <option value="">{tr('allBranches')}</option>
+                   {branches.map((branch, index) => (
+                     <option key={index} value={branch.branchName}>{branch.branchName}</option>
+                   ))}
+                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('filterByToBranch')}</label>
+                                 <select
+                   value={filters.toBranch}
+                   onChange={(e) => setFilters({ ...filters, toBranch: e.target.value })}
+                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                 >
+                   <option value="">{tr('allBranches')}</option>
+                   {branches.map((branch, index) => (
+                     <option key={index} value={branch.branchName}>{branch.branchName}</option>
+                   ))}
+                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('filterByType')}</label>
+                <select
+                  value={filters.transferType}
+                  onChange={(e) => setFilters({ ...filters, transferType: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="">{tr('allTypes')}</option>
+                  <option value="send">{tr('sendTransfer')}</option>
+                  <option value="receive">{tr('receiveTransfer')}</option>
+                  <option value="confirm">{tr('confirmTransfer')}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('filterByDate')}</label>
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => setFilters({
+                  fromBranch: '',
+                  toBranch: '',
+                  transferType: '',
+                  currency: '',
+                  dateFrom: '',
+                  dateTo: '',
+                  amountFrom: '',
+                  amountTo: ''
+                })}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+              >
+                {tr('clearFilters')}
+              </button>
+              <span className="text-sm text-gray-600">
+                {tr('showing')} {filteredTransfers.length} {tr('of')} {transfers.length} {tr('transfers')}
+              </span>
+            </div>
+          </AnimatedCard>
+        </motion.div>
+
+        {/* Transfers List */}
+        <AnimatedCard className="p-6" delay={0.5}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">{tr('branchTransfers')}</h3>
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder={tr('searchTransfers')}
+              />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="p-20 text-center">
+              <AnimatedLoader 
+                type="ring" 
+                size="xl" 
+                color="indigo" 
+                text={tr('loadingData')}
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="p-3 text-right">{tr('transferDate')}</th>
+                    <th className="p-3 text-right">{tr('transferNumber')}</th>
+                    <th className="p-3 text-right">{tr('fromBranch')}</th>
+                    <th className="p-3 text-right">{tr('toBranch')}</th>
+                    <th className="p-3 text-right">{tr('transferType')}</th>
+                    <th className="p-3 text-right">{tr('amount')}</th>
+                    <th className="p-3 text-right">{tr('status')}</th>
+                    <th className="p-3 text-right">{tr('actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTransfers.map((transfer) => (
+                    <motion.tr 
+                      key={transfer.id}
+                      className="border-b hover:bg-gray-50 transition-colors"
+                      variants={itemVariants}
+                    >
+                      <td className="p-3">
+                        <div className="text-sm">
+                          <div className="font-medium">{transfer.date}</div>
+                          <div className="text-gray-500">{transfer.time}</div>
                         </div>
-                        <div className="flex gap-3">
-                            <AnimatedButton
-                                onClick={() => setIsAddingTransfer(true)}
-                                variant="primary"
-                                icon={PlusIcon}
-                            >
-                                إضافة عملية زمم جديدة
-                            </AnimatedButton>
-                            <AnimatedButton
-                                onClick={handleExport}
-                                variant="outline"
-                                icon={DownloadIcon}
-                            >
-                                تصدير التقرير
-                            </AnimatedButton>
+                      </td>
+                      <td className="p-3">
+                        <div className="text-sm font-medium text-indigo-600">
+                          {transfer.transferNumber}
                         </div>
-                    </div>
-                </motion.div>
-
-                {/* Statistics Cards */}
-                <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" variants={itemVariants}>
-                    <AnimatedCard className="p-6" delay={0.1}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">إجمالي العمليات</p>
-                                <p className="text-2xl font-bold text-blue-600">{totalTransfers}</p>
-                            </div>
-                            <Building className="w-8 h-8 text-blue-600" />
+                      </td>
+                      <td className="p-3">
+                        <div className="text-sm font-medium">
+                          {transfer.fromBranch}
                         </div>
-                    </AnimatedCard>
-
-                    <AnimatedCard className="p-6" delay={0.2}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">إجمالي المبالغ</p>
-                                <p className="text-2xl font-bold text-green-600">{totalAmount.toLocaleString()} USD</p>
-                            </div>
-                            <DollarSign className="w-8 h-8 text-green-600" />
+                      </td>
+                      <td className="p-3">
+                        <div className="text-sm font-medium">
+                          {transfer.toBranch}
                         </div>
-                    </AnimatedCard>
-
-                    <AnimatedCard className="p-6" delay={0.3}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">العمليات المكتملة</p>
-                                <p className="text-2xl font-bold text-green-600">{completedTransfers}</p>
-                            </div>
-                            <TrendingUp className="w-8 h-8 text-green-600" />
+                      </td>
+                      <td className="p-3">
+                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium border ${getTransferColor(transfer.transferType)}`}>
+                          {getTransferIcon(transfer.transferType)}
+                          {transfer.transferType === 'send' ? tr('sendTransfer') : 
+                           transfer.transferType === 'receive' ? tr('receiveTransfer') : tr('confirmTransfer')}
                         </div>
-                    </AnimatedCard>
-
-                    <AnimatedCard className="p-6" delay={0.4}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">العمليات المعلقة</p>
-                                <p className="text-2xl font-bold text-orange-600">{pendingTransfers}</p>
-                            </div>
-                            <AlertTriangle className="w-8 h-8 text-orange-600" />
+                      </td>
+                      <td className="p-3">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900">
+                            {transfer.amount.toLocaleString()} {transfer.currency}
+                          </div>
                         </div>
-                    </AnimatedCard>
-                </motion.div>
-
-                {/* Filters */}
-                <motion.div className="mb-6" variants={itemVariants}>
-                    <AnimatedCard className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">الفرع المرسل</label>
-                                <select
-                                    value={selectedFromBranch}
-                                    onChange={(e) => setSelectedFromBranch(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option value="">جميع الفروع</option>
-                                    {branches.map(branch => (
-                                        <option key={branch.id} value={branch.branchName}>
-                                            {branch.branchName}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">الفرع المستلم</label>
-                                <select
-                                    value={selectedToBranch}
-                                    onChange={(e) => setSelectedToBranch(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option value="">جميع الفروع</option>
-                                    {branches.map(branch => (
-                                        <option key={branch.id} value={branch.branchName}>
-                                            {branch.branchName}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
-                                <select
-                                    value={selectedStatus}
-                                    onChange={(e) => setSelectedStatus(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option value="">جميع الحالات</option>
-                                    <option value="completed">مكتمل</option>
-                                    <option value="pending">معلق</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
-                                <input
-                                    type="date"
-                                    value={dateRange.start}
-                                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
-                                <input
-                                    type="date"
-                                    value={dateRange.end}
-                                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ الأدنى</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={minAmount}
-                                    onChange={(e) => setMinAmount(parseFloat(e.target.value) || 0)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="0"
-                                />
-                            </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(transfer.status)}
+                          <span className="text-sm">
+                            {transfer.status === 'pending' ? tr('pending') : 
+                             transfer.status === 'confirmed' ? tr('confirmed') : tr('completed')}
+                          </span>
                         </div>
-                    </AnimatedCard>
-                </motion.div>
-
-                {/* Transfers List */}
-                <AnimatedCard className="p-6" delay={0.5}>
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-800">قائمة عمليات الزمم</h3>
-                        <span className="text-sm text-gray-600">
-                            عرض {filteredTransfers.length} من {transfers.length} عملية
-                        </span>
-                    </div>
-                    
-                    {isLoading ? (
-                        <div className="p-20 text-center">
-                            <AnimatedLoader 
-                                type="ring" 
-                                size="xl" 
-                                color="indigo" 
-                                text="جاري تحميل البيانات..."
-                            />
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingTransfer(transfer);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-1 text-blue-600 hover:text-blue-800"
+                            title={tr('editTransfer')}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTransfer(transfer.id)}
+                            className="p-1 text-red-600 hover:text-red-800"
+                            title={tr('delete')}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50">
-                                        <th className="p-3 text-right">التاريخ</th>
-                                        <th className="p-3 text-right">الفرع المرسل</th>
-                                        <th className="p-3 text-right">الفرع المستلم</th>
-                                        <th className="p-3 text-right">المبلغ</th>
-                                        <th className="p-3 text-right">نوع العملية</th>
-                                        <th className="p-3 text-right">الوصف</th>
-                                        <th className="p-3 text-right">الحالة</th>
-                                        <th className="p-3 text-right">ملاحظات</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredTransfers.map((transfer) => (
-                                        <motion.tr 
-                                            key={transfer.id}
-                                            className="border-b hover:bg-gray-50 transition-colors"
-                                            variants={itemVariants}
-                                        >
-                                            <td className="p-3 text-center">
-                                                {transfer.date || 'N/A'}
-                                            </td>
-                                            <td className="p-3 text-center font-medium text-red-600">
-                                                {transfer.fromBranch || 'N/A'}
-                                            </td>
-                                            <td className="p-3 text-center font-medium text-green-600">
-                                                {transfer.toBranch || 'N/A'}
-                                            </td>
-                                            <td className="p-3 text-center font-medium">
-                                                {transfer.amount?.toLocaleString()} {transfer.currency}
-                                            </td>
-                                            <td className="p-3 text-center">
-                                                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                                                    transfer.transferType === 'payment' 
-                                                        ? 'bg-red-100 text-red-800' 
-                                                        : 'bg-green-100 text-green-800'
-                                                }`}>
-                                                    {transfer.transferType === 'payment' ? 'دفع' : 'تحصيل'}
-                                                </span>
-                                            </td>
-                                            <td className="p-3">{transfer.description}</td>
-                                            <td className="p-3 text-center">
-                                                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                                                    transfer.status === 'completed' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-orange-100 text-orange-800'
-                                                }`}>
-                                                    {transfer.status === 'completed' ? 'مكتمل' : 'معلق'}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-center text-sm text-gray-600">
-                                                {transfer.notes || '-'}
-                                            </td>
-                                        </motion.tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            
-                            {filteredTransfers.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <Building className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                    <p>لا توجد عمليات زمم لعرضها</p>
-                                    <p className="text-sm mt-2">
-                                        تأكد من:
-                                        <br />• وجود عمليات زمم مسجلة
-                                        <br />• تطبيق الفلاتر المحددة
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </AnimatedCard>
-            </motion.div>
-
-            {/* Add Transfer Modal */}
-            {isAddingTransfer && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-lg font-semibold mb-4">إضافة عملية زمم جديدة</h3>
-                        
-                        <form onSubmit={handleAddTransfer} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        الفرع المرسل <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={newTransfer.fromBranch}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, fromBranch: e.target.value }))}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">اختر الفرع المرسل</option>
-                                        {branches.map(branch => (
-                                            <option key={branch.id} value={branch.branchName}>
-                                                {branch.branchName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        الفرع المستلم <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={newTransfer.toBranch}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, toBranch: e.target.value }))}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">اختر الفرع المستلم</option>
-                                        {branches.map(branch => (
-                                            <option key={branch.id} value={branch.branchName}>
-                                                {branch.branchName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        المبلغ <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={newTransfer.amount}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, amount: e.target.value }))}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        العملة
-                                    </label>
-                                    <select
-                                        value={newTransfer.currency}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, currency: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="USD">USD</option>
-                                        <option value="TRY">TRY</option>
-                                        <option value="SYP">SYP</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        نوع العملية
-                                    </label>
-                                    <select
-                                        value={newTransfer.transferType}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, transferType: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="payment">دفع (فرع يدفع لفرع آخر)</option>
-                                        <option value="collection">تحصيل (فرع يحصل من فرع آخر)</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        طريقة التحويل
-                                    </label>
-                                    <select
-                                        value={newTransfer.transferMethod}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, transferMethod: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">اختر طريقة التحويل</option>
-                                        <option value="bank_transfer">تحويل بنكي</option>
-                                        <option value="cash">نقداً</option>
-                                        <option value="check">شيك</option>
-                                        <option value="other">أخرى</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    الوصف <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newTransfer.description}
-                                    onChange={(e) => setNewTransfer(prev => ({ ...prev, description: e.target.value }))}
-                                    required
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="وصف عملية الزمم"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        رقم المرجع
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newTransfer.referenceNumber}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, referenceNumber: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="رقم المرجع أو الفاتورة"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        ملاحظات
-                                    </label>
-                                    <textarea
-                                        value={newTransfer.notes}
-                                        onChange={(e) => setNewTransfer(prev => ({ ...prev, notes: e.target.value }))}
-                                        rows="3"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="ملاحظات إضافية..."
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-4 pt-6 border-t">
-                                <AnimatedButton
-                                    type="button"
-                                    onClick={() => setIsAddingTransfer(false)}
-                                    variant="outline"
-                                >
-                                    إلغاء
-                                </AnimatedButton>
-                                <AnimatedButton
-                                    type="submit"
-                                    variant="primary"
-                                    disabled={isAddingTransfer}
-                                >
-                                    {isAddingTransfer ? 'جاري الإضافة...' : 'إضافة العملية'}
-                                </AnimatedButton>
-                            </div>
-                        </form>
-                    </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {filteredTransfers.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p>{tr('noTransfers')}</p>
+                  <p className="text-sm mt-2">
+                    {tr('addNewTransfer')}
+                  </p>
                 </div>
-            )}
-        </div>
-    );
+              )}
+            </div>
+          )}
+        </AnimatedCard>
+      </motion.div>
+
+      {/* Transfer Modal */}
+      <TransferModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTransfer(null);
+        }}
+        onSave={() => {
+          // Transfers will be updated via real-time listener
+        }}
+        transfer={editingTransfer}
+        branches={branches}
+      />
+    </div>
+  );
 }

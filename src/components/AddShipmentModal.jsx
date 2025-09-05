@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '/src/firebaseConfig';
 
 export default function AddShipmentModal({ closeModal }) {
@@ -34,6 +34,9 @@ export default function AddShipmentModal({ closeModal }) {
         assignedCar: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [customers, setCustomers] = useState([]);
+    const [customerType, setCustomerType] = useState('new'); // 'new' or 'existing'
+    const [selectedCustomer, setSelectedCustomer] = useState('');
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
@@ -42,11 +45,54 @@ export default function AddShipmentModal({ closeModal }) {
         };
     }, []);
 
+    // جلب العملاء المسجلين
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                const customersRef = collection(db, 'customers');
+                const customersSnapshot = await getDocs(customersRef);
+                const customersList = customersSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setCustomers(customersList);
+            } catch (error) {
+                console.error('Error fetching customers:', error);
+            }
+        };
+        fetchCustomers();
+    }, []);
+
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         const val = type === 'checkbox' ? checked : value;
         setFormData(prev => ({ ...prev, [name]: val }));
+    };
+
+    // اختيار عميل مسجل
+    const handleCustomerSelect = (customerId) => {
+        const customer = customers.find(c => c.id === customerId);
+        if (customer) {
+            setFormData(prev => ({
+                ...prev,
+                customerName: customer.name,
+                recipientPhone: customer.phone
+            }));
+        }
+    };
+
+    // تغيير نوع العميل
+    const handleCustomerTypeChange = (type) => {
+        setCustomerType(type);
+        if (type === 'new') {
+            setSelectedCustomer('');
+            setFormData(prev => ({
+                ...prev,
+                customerName: '',
+                recipientPhone: ''
+            }));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -117,14 +163,81 @@ export default function AddShipmentModal({ closeModal }) {
                                 <label htmlFor="shipmentId" className="block text-sm font-medium text-gray-700 mb-1">رقم الشحنة</label>
                                 <input id="shipmentId" type="text" name="shipmentId" value={formData.shipmentId} className="p-2 border rounded-md w-full bg-gray-100" readOnly />
                             </div>
-                            <div>
-                                <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1">اسم المستلم</label>
-                                <input id="customerName" type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                        </div>
+                    </fieldset>
+
+                    <fieldset className="border p-4 rounded-md">
+                        <legend className="px-2 font-semibold">معلومات المستلم</legend>
+                        
+                        {/* خيارات نوع العميل */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">نوع العميل</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="customerType"
+                                        value="new"
+                                        checked={customerType === 'new'}
+                                        onChange={(e) => handleCustomerTypeChange(e.target.value)}
+                                        className="mr-2"
+                                    />
+                                    عميل جديد
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="customerType"
+                                        value="existing"
+                                        checked={customerType === 'existing'}
+                                        onChange={(e) => handleCustomerTypeChange(e.target.value)}
+                                        className="mr-2"
+                                    />
+                                    عميل مسجل
+                                </label>
                             </div>
-                            <div>
-                                <label htmlFor="recipientPhone" className="block text-sm font-medium text-gray-700 mb-1">رقم هاتف المستلم</label>
-                                <input id="recipientPhone" type="text" name="recipientPhone" value={formData.recipientPhone} onChange={handleChange} className="p-2 border rounded-md w-full" required />
-                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                            {customerType === 'existing' ? (
+                                <div className="md:col-span-2">
+                                    <label htmlFor="selectedCustomer" className="block text-sm font-medium text-gray-700 mb-1">اختر العميل</label>
+                                    <select
+                                        id="selectedCustomer"
+                                        value={selectedCustomer}
+                                        onChange={(e) => {
+                                            setSelectedCustomer(e.target.value);
+                                            handleCustomerSelect(e.target.value);
+                                        }}
+                                        className="p-2 border rounded-md w-full"
+                                        required
+                                    >
+                                        <option value="">اختر عميل...</option>
+                                        {customers.map(customer => (
+                                            <option key={customer.id} value={customer.id}>
+                                                {customer.name} - {customer.phone} ({customer.type === 'sender' ? 'مرسل' : customer.type === 'receiver' ? 'مستلم' : 'كلاهما'})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1">اسم المستلم</label>
+                                        <input id="customerName" type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="recipientPhone" className="block text-sm font-medium text-gray-700 mb-1">رقم هاتف المستلم</label>
+                                        <input id="recipientPhone" type="text" name="recipientPhone" value={formData.recipientPhone} onChange={handleChange} className="p-2 border rounded-md w-full" required />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </fieldset>
+
+                    <fieldset className="border p-4 rounded-md">
+                        <legend className="px-2 font-semibold">معلومات المرسل</legend>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                             <div>
                                 <label htmlFor="senderName" className="block text-sm font-medium text-gray-700 mb-1">اسم المرسل</label>
                                 <input id="senderName" type="text" name="senderName" value={formData.senderName} onChange={handleChange} className="p-2 border rounded-md w-full" required />

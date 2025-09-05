@@ -315,7 +315,7 @@ export default function BranchEntryDetailsPage() {
                 <body>
                     <div class="receipt-container">
                         <div class="header">
-                            <h1>شركة المستقيم</h1>
+                            <h1>شركة النقل</h1>
                             <p>إيصال إدخال ${entry.entryType === 'incoming' ? 'وارد' : 'صادر'}</p>
                             <p>تاريخ الإدخال: ${entry.createdAt ? format(entry.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : 'N/A'}</p>
                         </div>

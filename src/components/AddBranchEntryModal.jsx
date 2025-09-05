@@ -493,7 +493,7 @@ export default function AddBranchEntryModal({ closeModal, onEntryAdded, existing
                                         value={item.destinationGovernorate}
                                         onChange={(e) => handleItemChange(index, e)}
                                         className="p-2 border rounded-md w-full"
-                                        placeholder="مثال: حلب"
+                                        placeholder="مثال: نيقوسيا"
                                     />
                                 </div>
                                 <div className="md:col-span-full">

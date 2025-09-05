@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { ArrowLeftIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -10,6 +11,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 export default function AddShipmentPage() {
     const navigate = useNavigate();
+    const { language, tr } = useLanguage();
     const { shipmentId } = useParams(); // للتحقق من وجود ID للتعديل
     const [isLoading, setIsLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -28,13 +30,24 @@ export default function AddShipmentPage() {
         shippingFee: '',
         shippingFeeCurrency: 'USD',
         shippingFeePaymentMethod: 'collect',
-        hwalaFee: '',
-        hwalaFeeCurrency: 'USD',
-        hwalaFeePaymentMethod: 'collect',
+        transferFee: '',
+        transferFeeCurrency: 'USD',
+        transferFeePaymentMethod: 'collect',
         internalTransferFee: '',
         internalTransferFeeCurrency: 'USD',
         notes: ''
     });
+    const [customers, setCustomers] = useState([]);
+    // Recipient controls
+    const [customerType, setCustomerType] = useState('new');
+    const [selectedCustomer, setSelectedCustomer] = useState('');
+    const [recipientExistingRole, setRecipientExistingRole] = useState('receiver');
+    const [recipientRole, setRecipientRole] = useState('receiver');
+    // Sender controls
+    const [senderType, setSenderType] = useState('new');
+    const [selectedSender, setSelectedSender] = useState('');
+    const [senderExistingRole, setSenderExistingRole] = useState('sender');
+    const [senderRole, setSenderRole] = useState('sender');
 
     // Check if we're editing an existing shipment
     useEffect(() => {
@@ -60,9 +73,9 @@ export default function AddShipmentPage() {
                             shippingFee: shipmentData.shippingFee || '',
                             shippingFeeCurrency: shipmentData.shippingFeeCurrency || 'USD',
                             shippingFeePaymentMethod: shipmentData.shippingFeePaymentMethod || 'collect',
-                            hwalaFee: shipmentData.hwalaFee || '',
-                            hwalaFeeCurrency: shipmentData.hwalaFeeCurrency || 'USD',
-                            hwalaFeePaymentMethod: shipmentData.hwalaFeePaymentMethod || 'collect',
+                            transferFee: shipmentData.transferFee || '',
+                            transferFeeCurrency: shipmentData.transferFeeCurrency || 'USD',
+                            transferFeePaymentMethod: shipmentData.transferFeePaymentMethod || 'collect',
                             internalTransferFee: shipmentData.internalTransferFee || '',
                             internalTransferFeeCurrency: shipmentData.internalTransferFeeCurrency || 'USD',
                             notes: shipmentData.notes || ''
@@ -83,6 +96,20 @@ export default function AddShipmentPage() {
         checkIfEditing();
     }, [shipmentId]);
 
+    // Fetch registered customers
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                const snapshot = await getDocs(collection(db, 'customers'));
+                const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                setCustomers(list);
+            } catch (err) {
+                console.error('Error fetching customers:', err);
+            }
+        };
+        fetchCustomers();
+    }, []);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -101,11 +128,41 @@ export default function AddShipmentPage() {
                 status: 'pending',
                 goodsValue: parseFloat(formData.goodsValue) || 0,
                 shippingFee: parseFloat(formData.shippingFee) || 0,
-                hwalaFee: parseFloat(formData.hwalaFee) || 0,
+                transferFee: parseFloat(formData.transferFee) || 0,
                 internalTransferFee: parseFloat(formData.internalTransferFee) || 0,
                 weight: parseFloat(formData.weight) || 0,
                 parcelCount: parseInt(formData.parcelCount) || 1
             };
+
+            // Upsert customers for new entries
+            const upsertCustomer = async (name, phone, type) => {
+                if (!name || !phone) return;
+                try {
+                    const q = query(collection(db, 'customers'), where('phone', '==', phone));
+                    const snap = await getDocs(q);
+                    if (!snap.empty) {
+                        const docRef = snap.docs[0].ref;
+                        const existing = snap.docs[0].data();
+                        let newType = existing.type || type;
+                        if (existing.type && existing.type !== type && existing.type !== 'both') {
+                            newType = 'both';
+                        }
+                        await updateDoc(docRef, { name, phone, type: newType, updatedAt: serverTimestamp() });
+                    } else {
+                        const newRef = doc(collection(db, 'customers'));
+                        await setDoc(newRef, { name, phone, type, createdAt: serverTimestamp() });
+                    }
+                } catch (err) {
+                    console.error('Error upserting customer:', err);
+                }
+            };
+
+            if (customerType === 'new') {
+                await upsertCustomer(formData.customerName, formData.recipientPhone, recipientRole);
+            }
+            if (senderType === 'new') {
+                await upsertCustomer(formData.senderName, formData.senderPhone, senderRole);
+            }
 
             if (isEditing) {
                 // Update existing shipment
@@ -130,6 +187,26 @@ export default function AddShipmentPage() {
         }
     };
 
+    const handleCustomerTypeChange = (type) => {
+        setCustomerType(type);
+        if (type === 'new') {
+            setSelectedCustomer('');
+            setFormData(prev => ({ ...prev, customerName: '', recipientPhone: '' }));
+        }
+    };
+
+    const handleCustomerSelect = (customerId) => {
+        setSelectedCustomer(customerId);
+        const customer = customers.find(c => c.id === customerId);
+        if (customer) {
+            setFormData(prev => ({
+                ...prev,
+                customerName: customer.name || '',
+                recipientPhone: customer.phone || ''
+            }));
+        }
+    };
+
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: {
@@ -144,7 +221,7 @@ export default function AddShipmentPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-4xl mx-auto"
                 variants={containerVariants}
@@ -161,10 +238,10 @@ export default function AddShipmentPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة لإدارة الشحنات
+                                {tr('backToShipments')}
                             </AnimatedButton>
                             <h1 className="text-3xl font-bold gradient-text">
-                                {isEditing ? 'تعديل الشحنة' : 'إضافة شحنة جديدة'}
+                                {isEditing ? tr('editShipment') : tr('addNewShipment')}
                             </h1>
                         </div>
                     </div>
@@ -175,10 +252,10 @@ export default function AddShipmentPage() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Basic Information */}
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">المعلومات الأساسية</h2>
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">{tr('basicInformation')}</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">رقم الشحنة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('shipmentNumber')}</label>
                                     <input
                                         type="text"
                                         name="shipmentId"
@@ -186,19 +263,19 @@ export default function AddShipmentPage() {
                                         onChange={handleInputChange}
                                         required
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="رقم الشحنة"
+                                        placeholder={tr('shipmentNumber')}
                                         readOnly
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">نوع الطرد</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('parcelType')}</label>
                                     <input
                                         type="text"
                                         name="parcelType"
                                         value={formData.parcelType}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="اكتب نوع الطرد"
+                                        placeholder={tr('enterParcelType')}
                                     />
                                 </div>
                             </div>
@@ -206,72 +283,184 @@ export default function AddShipmentPage() {
 
                         {/* Customer Information */}
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">معلومات المستلم</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">اسم المستلم</label>
-                                    <input
-                                        type="text"
-                                        name="customerName"
-                                        value={formData.customerName}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="اسم المستلم"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المستلم</label>
-                                    <input
-                                        type="tel"
-                                        name="recipientPhone"
-                                        value={formData.recipientPhone}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="رقم الهاتف"
-                                    />
-                                </div>
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">{tr('customerInformation')}</h2>
+                            <div className="mb-3 flex gap-6 items-center">
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="customerType" value="new" checked={customerType === 'new'} onChange={(e) => handleCustomerTypeChange(e.target.value)} />
+                                    {tr('newCustomer') || 'عميل جديد'}
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="customerType" value="existing" checked={customerType === 'existing'} onChange={(e) => handleCustomerTypeChange(e.target.value)} />
+                                    {tr('existingCustomer') || 'عميل مسجل'}
+                                </label>
                             </div>
+
+                            {customerType === 'existing' ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="flex gap-6 items-center">
+                                        <label className="flex items-center gap-2">
+                                            <input type="radio" name="recipientExistingRole" value="receiver" checked={recipientExistingRole === 'receiver'} onChange={(e) => setRecipientExistingRole(e.target.value)} />
+                                            {tr('receivers') || 'المستلمين'}
+                                        </label>
+                                        <label className="flex items-center gap-2">
+                                            <input type="radio" name="recipientExistingRole" value="sender" checked={recipientExistingRole === 'sender'} onChange={(e) => setRecipientExistingRole(e.target.value)} />
+                                            {tr('senders') || 'المرسلين'}
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('selectCustomer') || 'اختر العميل'}</label>
+                                        <select
+                                            value={selectedCustomer}
+                                            onChange={(e) => handleCustomerSelect(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                        >
+                                            <option value="">{tr('chooseCustomer') || 'اختر عميل...'}</option>
+                                            {customers
+                                                .filter(c => recipientExistingRole === 'receiver' ? (c.type === 'receiver' || c.type === 'both') : (c.type === 'sender' || c.type === 'both'))
+                                                .map(c => (
+                                                    <option key={c.id} value={c.id}>{c.name} - {c.phone}{c.type ? ` (${c.type === 'sender' ? 'مرسل' : c.type === 'receiver' ? 'مستلم' : 'كلاهما'})` : ''}</option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md-grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('type') || 'النوع'}</label>
+                                        <div className="flex gap-6 items-center">
+                                            <label className="flex items-center gap-2">
+                                                <input type="radio" name="recipientRole" value="receiver" checked={recipientRole === 'receiver'} onChange={(e) => setRecipientRole(e.target.value)} />
+                                                {tr('receiver') || 'مستلم'}
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input type="radio" name="recipientRole" value="sender" checked={recipientRole === 'sender'} onChange={(e) => setRecipientRole(e.target.value)} />
+                                                {tr('sender') || 'مرسل'}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('customerName')}</label>
+                                        <input
+                                            type="text"
+                                            name="customerName"
+                                            value={formData.customerName}
+                                            onChange={handleInputChange}
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                            placeholder={tr('customerName')}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('customerPhone')}</label>
+                                        <input
+                                            type="tel"
+                                            name="recipientPhone"
+                                            value={formData.recipientPhone}
+                                            onChange={handleInputChange}
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                            placeholder={tr('phoneNumber')}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
 
                         {/* Sender Information */}
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">معلومات المرسل</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">اسم المرسل</label>
-                                    <input
-                                        type="text"
-                                        name="senderName"
-                                        value={formData.senderName}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="اسم المرسل"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المرسل</label>
-                                    <input
-                                        type="tel"
-                                        name="senderPhone"
-                                        value={formData.senderPhone}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="رقم الهاتف"
-                                    />
-                                </div>
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">{tr('senderInformation')}</h2>
+                            <div className="mb-3 flex gap-6 items-center">
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="senderType" value="new" checked={senderType === 'new'} onChange={(e) => setSenderType(e.target.value)} />
+                                    {tr('newCustomer') || 'عميل جديد'}
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input type="radio" name="senderType" value="existing" checked={senderType === 'existing'} onChange={(e) => setSenderType(e.target.value)} />
+                                    {tr('existingCustomer') || 'عميل مسجل'}
+                                </label>
                             </div>
+
+                            {senderType === 'existing' ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="flex gap-6 items-center">
+                                        <label className="flex items-center gap-2">
+                                            <input type="radio" name="senderExistingRole" value="sender" checked={senderExistingRole === 'sender'} onChange={(e) => setSenderExistingRole(e.target.value)} />
+                                            {tr('senders') || 'المرسلين'}
+                                        </label>
+                                        <label className="flex items-center gap-2">
+                                            <input type="radio" name="senderExistingRole" value="receiver" checked={senderExistingRole === 'receiver'} onChange={(e) => setSenderExistingRole(e.target.value)} />
+                                            {tr('receivers') || 'المستلمين'}
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('selectCustomer') || 'اختر العميل'}</label>
+                                        <select
+                                            value={selectedSender}
+                                            onChange={(e) => {
+                                                setSelectedSender(e.target.value);
+                                                const c = customers.find(x => x.id === e.target.value);
+                                                if (c) setFormData(prev => ({ ...prev, senderName: c.name || '', senderPhone: c.phone || '' }));
+                                            }}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                        >
+                                            <option value="">{tr('chooseCustomer') || 'اختر عميل...'}</option>
+                                            {customers
+                                                .filter(c => senderExistingRole === 'sender' ? (c.type === 'sender' || c.type === 'both') : (c.type === 'receiver' || c.type === 'both'))
+                                                .map(c => (
+                                                    <option key={c.id} value={c.id}>{c.name} - {c.phone}{c.type ? ` (${c.type === 'sender' ? 'مرسل' : c.type === 'receiver' ? 'مستلم' : 'كلاهما'})` : ''}</option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('type') || 'النوع'}</label>
+                                        <div className="flex gap-6 items-center">
+                                            <label className="flex items-center gap-2">
+                                                <input type="radio" name="senderRole" value="sender" checked={senderRole === 'sender'} onChange={(e) => setSenderRole(e.target.value)} />
+                                                {tr('sender') || 'مرسل'}
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input type="radio" name="senderRole" value="receiver" checked={senderRole === 'receiver'} onChange={(e) => setSenderRole(e.target.value)} />
+                                                {tr('receiver') || 'مستلم'}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('senderName')}</label>
+                                        <input
+                                            type="text"
+                                            name="senderName"
+                                            value={formData.senderName}
+                                            onChange={handleInputChange}
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                            placeholder={tr('senderName')}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('senderPhone')}</label>
+                                        <input
+                                            type="tel"
+                                            name="senderPhone"
+                                            value={formData.senderPhone}
+                                            onChange={handleInputChange}
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                            placeholder={tr('phoneNumber')}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
 
                         {/* Location and Package Details */}
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">تفاصيل الموقع والطرد</h2>
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">{tr('locationAndPackageDetails')}</h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">المحافظة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('governorate')}</label>
                                     <select
                                         name="governorate"
                                         value={formData.governorate}
@@ -279,43 +468,41 @@ export default function AddShipmentPage() {
                                         required
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="">اختر المحافظة</option>
-                                        <option value="دمشق">دمشق</option>
-                                        <option value="ريف دمشق">ريف دمشق</option>
-                                        <option value="حلب">حلب</option>
-                                        <option value="حمص">حمص</option>
-                                        <option value="حماة">حماة</option>
-                                        <option value="اللاذقية">اللاذقية</option>
-                                        <option value="طرطوس">طرطوس</option>
-                                        <option value="إدلب">إدلب</option>
-                                        <option value="دير الزور">دير الزور</option>
-                                        <option value="الحسكة">الحسكة</option>
-                                        <option value="الرقة">الرقة</option>
-                                        <option value="درعا">درعا</option>
-                                        <option value="السويداء">السويداء</option>
-                                        <option value="القنيطرة">القنيطرة</option>
+                                        <option value="">{tr('selectGovernorate')}</option>
+                                        <option value={tr('nicosia')}>{tr('nicosia')}</option>
+                                        <option value={tr('famagusta')}>{tr('famagusta')}</option>
+                                        <option value={tr('kyrenia')}>{tr('kyrenia')}</option>
+                                        <option value={tr('morphou')}>{tr('morphou')}</option>
+                                        <option value={tr('iskele')}>{tr('iskele')}</option>
+                                        <option value={tr('lefke')}>{tr('lefke')}</option>
+                                        <option value={tr('güzelyurt')}>{tr('güzelyurt')}</option>
+                                        <option value={tr('dipkarpaz')}>{tr('dipkarpaz')}</option>
+                                        <option value={tr('bogaz')}>{tr('bogaz')}</option>
+                                        <option value={tr('akdogan')}>{tr('akdogan')}</option>
+                                        <option value={tr('ercan')}>{tr('ercan')}</option>
+                                        <option value={tr('karpaz')}>{tr('karpaz')}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">الوزن (كغ)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('weightKg')}</label>
                                     <input
                                         type="number"
                                         name="weight"
                                         value={formData.weight}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="الوزن بالكيلوغرام"
+                                        placeholder={tr('weightInKg')}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">عدد الطرود</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('parcelCount')}</label>
                                     <input
                                         type="number"
                                         name="parcelCount"
                                         value={formData.parcelCount}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="عدد الطرود"
+                                        placeholder={tr('parcelCount')}
                                     />
                                 </div>
                             </div>
@@ -323,32 +510,32 @@ export default function AddShipmentPage() {
 
                         {/* Financial Information */}
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">المعلومات المالية</h2>
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">{tr('financialInformation')}</h2>
                             
                             {/* Goods Value */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">قيمة البضاعة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('goodsValue')}</label>
                                     <input
                                         type="number"
                                         name="goodsValue"
                                         value={formData.goodsValue}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="قيمة البضاعة"
+                                        placeholder={tr('goodsValue')}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">عملة البضاعة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('goodsCurrency')}</label>
                                     <select
                                         name="goodsCurrency"
                                         value={formData.goodsCurrency}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="USD">دولار أمريكي</option>
-                                        <option value="TRY">ليرة تركية</option>
-                                        <option value="SYP">ليرة سورية</option>
+                                        <option value="USD">{tr('usd')}</option>
+                                        <option value="TRY">{tr('try')}</option>
+                                        <option value="SYP">{tr('syp')}</option>
                                     </select>
                                 </div>
                             </div>
@@ -356,79 +543,79 @@ export default function AddShipmentPage() {
                             {/* Shipping Fee */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">أجور الشحن</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('shippingFee')}</label>
                                     <input
                                         type="number"
                                         name="shippingFee"
                                         value={formData.shippingFee}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="أجور الشحن"
+                                        placeholder={tr('shippingFee')}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">عملة الشحن</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('shippingFeeCurrency')}</label>
                                     <select
                                         name="shippingFeeCurrency"
                                         value={formData.shippingFeeCurrency}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="USD">دولار أمريكي</option>
-                                        <option value="TRY">ليرة تركية</option>
-                                        <option value="SYP">ليرة سورية</option>
+                                        <option value="USD">{tr('usd')}</option>
+                                        <option value="TRY">{tr('try')}</option>
+                                        <option value="SYP">{tr('syp')}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">طريقة دفع الشحن</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('shippingFeePaymentMethod')}</label>
                                     <select
                                         name="shippingFeePaymentMethod"
                                         value={formData.shippingFeePaymentMethod}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="collect">تحصيل</option>
-                                        <option value="prepaid">مسبق</option>
+                                        <option value="collect">{tr('collect')}</option>
+                                        <option value="prepaid">{tr('prepaid')}</option>
                                     </select>
                                 </div>
                             </div>
 
-                            {/* Hwala Fee */}
+                            {/* Transfer Fee */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">أجور الحوالة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('transferFee')}</label>
                                     <input
                                         type="number"
-                                        name="hwalaFee"
-                                        value={formData.hwalaFee}
+                                        name="transferFee"
+                                        value={formData.transferFee}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="أجور الحوالة"
+                                        placeholder={tr('transferFee')}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">عملة الحوالة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('transferFeeCurrency')}</label>
                                     <select
-                                        name="hwalaFeeCurrency"
-                                        value={formData.hwalaFeeCurrency}
+                                        name="transferFeeCurrency"
+                                        value={formData.transferFeeCurrency}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="USD">دولار أمريكي</option>
-                                        <option value="TRY">ليرة تركية</option>
-                                        <option value="SYP">ليرة سورية</option>
+                                        <option value="USD">{tr('usd')}</option>
+                                        <option value="TRY">{tr('try')}</option>
+                                        <option value="SYP">{tr('syp')}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">طريقة دفع الحوالة</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('transferFeePaymentMethod')}</label>
                                     <select
-                                        name="hwalaFeePaymentMethod"
-                                        value={formData.hwalaFeePaymentMethod}
+                                        name="transferFeePaymentMethod"
+                                        value={formData.transferFeePaymentMethod}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="collect">تحصيل</option>
-                                        <option value="prepaid">مسبق</option>
+                                        <option value="collect">{tr('collect')}</option>
+                                        <option value="prepaid">{tr('prepaid')}</option>
                                     </select>
                                 </div>
                             </div>
@@ -436,27 +623,27 @@ export default function AddShipmentPage() {
                             {/* Internal Transfer Fee */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">أجور المحول</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('internalTransferFee')}</label>
                                     <input
                                         type="number"
                                         name="internalTransferFee"
                                         value={formData.internalTransferFee}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="أجور المحول"
+                                        placeholder={tr('internalTransferFee')}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">عملة المحول</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('internalTransferFeeCurrency')}</label>
                                     <select
                                         name="internalTransferFeeCurrency"
                                         value={formData.internalTransferFeeCurrency}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                     >
-                                        <option value="USD">دولار أمريكي</option>
-                                        <option value="TRY">ليرة تركية</option>
-                                        <option value="SYP">ليرة سورية</option>
+                                        <option value="USD">{tr('usd')}</option>
+                                        <option value="TRY">{tr('try')}</option>
+                                        <option value="SYP">{tr('syp')}</option>
                                     </select>
                                 </div>
                             </div>
@@ -464,16 +651,16 @@ export default function AddShipmentPage() {
 
                         {/* Notes */}
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">ملاحظات إضافية</h2>
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">{tr('additionalNotes')}</h2>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
+                                                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('notes')}</label>
                                 <textarea
                                     name="notes"
                                     value={formData.notes}
                                     onChange={handleInputChange}
                                     rows={4}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                    placeholder="أي ملاحظات إضافية..."
+                                    placeholder={tr('anyAdditionalNotes')}
                                 />
                             </div>
                         </motion.div>
@@ -485,14 +672,14 @@ export default function AddShipmentPage() {
                                 onClick={() => navigate('/shipments')}
                                 variant="outline"
                             >
-                                إلغاء
+                                {tr('cancel')}
                             </AnimatedButton>
                             <AnimatedButton
                                 type="submit"
                                 variant="primary"
                                 loading={isLoading}
                             >
-                                {isLoading ? `جاري ${isEditing ? 'التحديث' : 'الإضافة'}...` : `${isEditing ? 'تحديث' : 'إضافة'} الشحنة`}
+                                {isLoading ? `${isEditing ? tr('updating') : tr('adding')}...` : `${isEditing ? tr('updateShipment') : tr('addShipment')}`}
                             </AnimatedButton>
                         </motion.div>
                     </form>

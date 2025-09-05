@@ -2,6 +2,1580 @@
 @tailwind components;
 @tailwind utilities;
 
+/* RTL/LTR Support */
+.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+.ltr {
+  direction: ltr;
+  text-align: left;
+}
+
+/* RTL specific styles */
+.rtl .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+.rtl .space-x > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+/* RTL specific spacing utilities */
+.rtl .space-x-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.75rem;
+  margin-right: 0;
+}
+
+.rtl .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1rem;
+  margin-right: 0;
+}
+
+/* RTL specific space-x-reverse utilities */
+.rtl .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+/* LTR specific space-x-reverse utilities */
+.ltr .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+}
+
+/* RTL specific flexbox utilities */
+.rtl .flex-row {
+  flex-direction: row-reverse;
+}
+
+.rtl .flex-row-reverse {
+  flex-direction: row;
+}
+
+/* RTL specific text alignment */
+.rtl .text-left {
+  text-align: right;
+}
+
+.rtl .text-right {
+  text-align: left;
+}
+
+/* RTL specific justify utilities */
+.rtl .justify-start {
+  justify-content: flex-end;
+}
+
+.rtl .justify-end {
+  justify-content: flex-start;
+}
+
+/* RTL specific items utilities */
+.rtl .items-start {
+  align-items: flex-end;
+}
+
+.rtl .items-end {
+  align-items: flex-start;
+}
+
+/* LTR specific styles */
+.ltr .space-x > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+}
+
+/* LTR specific flexbox utilities */
+.ltr .flex-row {
+  flex-direction: row;
+}
+
+.ltr .flex-row-reverse {
+  flex-direction: row-reverse;
+}
+
+/* LTR specific text alignment */
+.ltr .text-left {
+  text-align: left;
+}
+
+.ltr .text-right {
+  text-align: right;
+}
+
+/* LTR specific justify utilities */
+.ltr .justify-start {
+  justify-content: flex-start;
+}
+
+.ltr .justify-end {
+  justify-content: flex-end;
+}
+
+/* LTR specific items utilities */
+.ltr .items-start {
+  align-items: flex-start;
+}
+
+.ltr .items-end {
+  align-items: flex-end;
+}
+
+/* Language transition */
+* {
+  transition: all 0.3s ease;
+}
+
+/* RTL specific positioning utilities */
+.rtl .left-0 {
+  left: unset;
+  right: 0;
+}
+
+.rtl .right-0 {
+  right: unset;
+  left: 0;
+}
+
+.rtl .left-3 {
+  left: unset;
+  right: 0.75rem;
+}
+
+.rtl .right-3 {
+  right: unset;
+  left: 0.75rem;
+}
+
+/* LTR specific positioning utilities */
+.ltr .right-0 {
+  right: 0;
+  left: unset;
+}
+
+.ltr .left-0 {
+  left: 0;
+  right: unset;
+}
+
+.ltr .right-3 {
+  right: 0.75rem;
+  left: unset;
+}
+
+.ltr .left-3 {
+  left: 0.75rem;
+  right: unset;
+}
+
+/* RTL/LTR specific margins and paddings */
+.rtl .ml-auto {
+  margin-left: unset;
+  margin-right: auto;
+}
+
+.rtl .mr-auto {
+  margin-right: unset;
+  margin-left: auto;
+}
+
+/* RTL specific auto margins */
+.rtl .ml-10 {
+  margin-left: unset;
+  margin-right: 2.5rem;
+}
+
+.rtl .mr-10 {
+  margin-right: unset;
+  margin-left: 2.5rem;
+}
+
+/* LTR specific auto margins */
+.ltr .mr-10 {
+  margin-right: 2.5rem;
+  margin-left: unset;
+}
+
+.ltr .ml-10 {
+  margin-left: 2.5rem;
+  margin-right: unset;
+}
+
+/* RTL specific margin and padding utilities */
+.rtl .ml-3 {
+  margin-left: unset;
+  margin-right: 0.75rem;
+}
+
+.rtl .ml-6 {
+  margin-left: unset;
+  margin-right: 1.5rem;
+}
+
+.rtl .mr-3 {
+  margin-right: unset;
+  margin-left: 0.75rem;
+}
+
+.rtl .mr-6 {
+  margin-right: unset;
+  margin-left: 1.5rem;
+}
+
+.rtl .pl-10 {
+  padding-left: unset;
+  padding-right: 2.5rem;
+}
+
+.rtl .pr-4 {
+  padding-right: unset;
+  padding-left: 1rem;
+}
+
+/* LTR specific margin and padding utilities */
+.ltr .mr-3 {
+  margin-right: 0.75rem;
+  margin-left: unset;
+}
+
+.ltr .mr-6 {
+  margin-right: 1.5rem;
+  margin-left: unset;
+}
+
+.ltr .ml-3 {
+  margin-left: 0.75rem;
+  margin-right: unset;
+}
+
+.ltr .ml-6 {
+  margin-left: 1.5rem;
+  margin-right: unset;
+}
+
+.ltr .pl-10 {
+  padding-left: 2.5rem;
+  padding-right: unset;
+}
+
+.ltr .pr-4 {
+  padding-right: 1rem;
+  padding-left: unset;
+}
+
+/* RTL specific space utilities */
+.rtl .space-x-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.75rem;
+  margin-right: 0;
+}
+
+.rtl .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1rem;
+  margin-right: 0;
+}
+
+/* LTR specific space utilities */
+.ltr .space-x-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.75rem;
+  margin-left: 0;
+}
+
+.ltr .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x utilities */
+.rtl .space-x > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+/* LTR specific space-x utilities */
+.ltr .space-x > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+}
+
+/* RTL specific space-x-2 utilities */
+.rtl .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-2 utilities */
+.ltr .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-1 utilities */
+.rtl .space-x-1 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.25rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-1 utilities */
+.ltr .space-x-1 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.25rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-5 utilities */
+.rtl .space-x-5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1.25rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-5 utilities */
+.ltr .space-x-5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1.25rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-6 utilities */
+.rtl .space-x-6 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1.5rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-6 utilities */
+.ltr .space-x-6 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1.5rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-8 utilities */
+.rtl .space-x-8 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 2rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-8 utilities */
+.ltr .space-x-8 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 2rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-10 utilities */
+.rtl .space-x-10 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 2.5rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-10 utilities */
+.ltr .space-x-10 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 2.5rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-12 utilities */
+.rtl .space-x-12 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 3rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-12 utilities */
+.ltr .space-x-12 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 3rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-16 utilities */
+.rtl .space-x-16 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 4rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-16 utilities */
+.ltr .space-x-16 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 4rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-20 utilities */
+.rtl .space-x-20 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 5rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-20 utilities */
+.ltr .space-x-20 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 5rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-24 utilities */
+.rtl .space-x-24 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 6rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-24 utilities */
+.ltr .space-x-24 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 6rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-32 utilities */
+.rtl .space-x-32 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 8rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-32 utilities */
+.ltr .space-x-32 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 8rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-40 utilities */
+.rtl .space-x-40 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 10rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-40 utilities */
+.ltr .space-x-40 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 10rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-48 utilities */
+.rtl .space-x-48 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 12rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-48 utilities */
+.ltr .space-x-48 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 12rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-56 utilities */
+.rtl .space-x-56 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 14rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-56 utilities */
+.ltr .space-x-56 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 14rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-64 utilities */
+.rtl .space-x-64 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 16rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-64 utilities */
+.ltr .space-x-64 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 16rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-72 utilities */
+.rtl .space-x-72 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 18rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-72 utilities */
+.ltr .space-x-72 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 18rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-80 utilities */
+.rtl .space-x-80 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 20rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-80 utilities */
+.ltr .space-x-80 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 20rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-96 utilities */
+.rtl .space-x-96 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 24rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-96 utilities */
+.ltr .space-x-96 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 24rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-px utilities */
+.rtl .space-x-px > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1px;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-px utilities */
+.ltr .space-x-px > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1px;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-0.5 utilities */
+.rtl .space-x-0\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-0.5 utilities */
+.ltr .space-x-0\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-1.5 utilities */
+.rtl .space-x-1\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-1.5 utilities */
+.ltr .space-x-1\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-2.5 utilities */
+.rtl .space-x-2\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-2.5 utilities */
+.ltr .space-x-2\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-3.5 utilities */
+.rtl .space-x-3\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 0.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-3.5 utilities */
+.ltr .space-x-3\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 0.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-4.5 utilities */
+.rtl .space-x-4\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-4.5 utilities */
+.ltr .space-x-4\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-5.5 utilities */
+.rtl .space-x-5\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-5.5 utilities */
+.ltr .space-x-5\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-6.5 utilities */
+.rtl .space-x-6\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-6.5 utilities */
+.ltr .space-x-6\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-7.5 utilities */
+.rtl .space-x-7\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 1.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-7.5 utilities */
+.ltr .space-x-7\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 1.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-8.5 utilities */
+.rtl .space-x-8\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 2.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-8.5 utilities */
+.ltr .space-x-8\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 2.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-9.5 utilities */
+.rtl .space-x-9\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 2.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-9.5 utilities */
+.ltr .space-x-9\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 2.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-10.5 utilities */
+.rtl .space-x-10\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 2.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-10.5 utilities */
+.ltr .space-x-10\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 2.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-11.5 utilities */
+.rtl .space-x-11\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 2.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-11.5 utilities */
+.ltr .space-x-11\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 2.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-12.5 utilities */
+.rtl .space-x-12\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 3.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-12.5 utilities */
+.ltr .space-x-12\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 3.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-13.5 utilities */
+.rtl .space-x-13\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 3.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-13.5 utilities */
+.ltr .space-x-13\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 3.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-14.5 utilities */
+.rtl .space-x-14\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 3.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-14.5 utilities */
+.ltr .space-x-14\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 3.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-15.5 utilities */
+.rtl .space-x-15\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 3.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-15.5 utilities */
+.ltr .space-x-15\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 3.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-16.5 utilities */
+.rtl .space-x-16\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 4.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-16.5 utilities */
+.ltr .space-x-16\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 4.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-17.5 utilities */
+.rtl .space-x-17\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 4.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-17.5 utilities */
+.ltr .space-x-17\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 4.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-18.5 utilities */
+.rtl .space-x-18\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 4.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-18.5 utilities */
+.ltr .space-x-18\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 4.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-19.5 utilities */
+.rtl .space-x-19\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 4.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-19.5 utilities */
+.ltr .space-x-19\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 4.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-20.5 utilities */
+.rtl .space-x-20\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 5.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-20.5 utilities */
+.ltr .space-x-20\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 5.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-21.5 utilities */
+.rtl .space-x-21\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 5.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-21.5 utilities */
+.ltr .space-x-21\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 5.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-22.5 utilities */
+.rtl .space-x-22\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 5.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-22.5 utilities */
+.ltr .space-x-22\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 5.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-23.5 utilities */
+.rtl .space-x-23\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 5.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-23.5 utilities */
+.ltr .space-x-23\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 5.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-24.5 utilities */
+.rtl .space-x-24\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 6.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-24.5 utilities */
+.ltr .space-x-24\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 6.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-25.5 utilities */
+.rtl .space-x-25\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 6.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-25.5 utilities */
+.ltr .space-x-25\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 6.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-26.5 utilities */
+.rtl .space-x-26\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 6.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-26.5 utilities */
+.ltr .space-x-26\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 6.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-27.5 utilities */
+.rtl .space-x-27\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 6.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-27.5 utilities */
+.ltr .space-x-27\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 6.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-28.5 utilities */
+.rtl .space-x-28\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 7.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-28.5 utilities */
+.ltr .space-x-28\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 7.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-29.5 utilities */
+.rtl .space-x-29\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 7.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-29.5 utilities */
+.ltr .space-x-29\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 7.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-30.5 utilities */
+.rtl .space-x-30\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 7.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-30.5 utilities */
+.ltr .space-x-30\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 7.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-31.5 utilities */
+.rtl .space-x-31\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 7.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-31.5 utilities */
+.ltr .space-x-31\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 7.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-32.5 utilities */
+.rtl .space-x-32\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 8.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-32.5 utilities */
+.ltr .space-x-32\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 8.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-33.5 utilities */
+.rtl .space-x-33\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 8.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-33.5 utilities */
+.ltr .space-x-33\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 8.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-34.5 utilities */
+.rtl .space-x-34\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 8.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-34.5 utilities */
+.ltr .space-x-34\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 8.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-35.5 utilities */
+.rtl .space-x-35\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 8.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-35.5 utilities */
+.ltr .space-x-35\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 8.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-36.5 utilities */
+.rtl .space-x-36\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 9.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-36.5 utilities */
+.ltr .space-x-36\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 9.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-37.5 utilities */
+.rtl .space-x-37\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 9.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-37.5 utilities */
+.ltr .space-x-37\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 9.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-38.5 utilities */
+.rtl .space-x-38\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 9.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-38.5 utilities */
+.ltr .space-x-38\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 9.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-39.5 utilities */
+.rtl .space-x-39\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 9.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-39.5 utilities */
+.ltr .space-x-39\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 9.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-40.5 utilities */
+.rtl .space-x-40\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 10.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-40.5 utilities */
+.ltr .space-x-40\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 10.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-41.5 utilities */
+.rtl .space-x-41\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 10.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-41.5 utilities */
+.ltr .space-x-41\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 10.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-42.5 utilities */
+.rtl .space-x-42\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 10.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-42.5 utilities */
+.ltr .space-x-42\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 10.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-43.5 utilities */
+.rtl .space-x-43\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 10.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-43.5 utilities */
+.ltr .space-x-43\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 10.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-44.5 utilities */
+.rtl .space-x-44\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 11.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-44.5 utilities */
+.ltr .space-x-44\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 11.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-45.5 utilities */
+.rtl .space-x-45\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 11.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-45.5 utilities */
+.ltr .space-x-45\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 11.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-46.5 utilities */
+.rtl .space-x-46\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 11.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-46.5 utilities */
+.ltr .space-x-46\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 11.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-47.5 utilities */
+.rtl .space-x-47\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 11.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-47.5 utilities */
+.ltr .space-x-47\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 11.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-48.5 utilities */
+.rtl .space-x-48\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 12.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-48.5 utilities */
+.ltr .space-x-48\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 12.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-49.5 utilities */
+.rtl .space-x-49\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 12.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-49.5 utilities */
+.ltr .space-x-49\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 12.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-50.5 utilities */
+.rtl .space-x-50\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 12.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-50.5 utilities */
+.ltr .space-x-50\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 12.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-51.5 utilities */
+.rtl .space-x-51\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 12.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-51.5 utilities */
+.ltr .space-x-51\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 12.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-52.5 utilities */
+.rtl .space-x-52\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 13.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-52.5 utilities */
+.ltr .space-x-52\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 13.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-53.5 utilities */
+.rtl .space-x-53\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 13.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-53.5 utilities */
+.ltr .space-x-53\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 13.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-54.5 utilities */
+.rtl .space-x-54\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 13.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-54.5 utilities */
+.ltr .space-x-54\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 13.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-55.5 utilities */
+.rtl .space-x-55\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 13.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-55.5 utilities */
+.ltr .space-x-55\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 13.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-56.5 utilities */
+.rtl .space-x-56\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 14.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-56.5 utilities */
+.ltr .space-x-56\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 14.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-57.5 utilities */
+.rtl .space-x-57\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 14.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-57.5 utilities */
+.ltr .space-x-57\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 14.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-58.5 utilities */
+.rtl .space-x-58\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 14.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-58.5 utilities */
+.ltr .space-x-58\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 14.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-59.5 utilities */
+.rtl .space-x-59\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 14.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-59.5 utilities */
+.ltr .space-x-59\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 14.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-60.5 utilities */
+.rtl .space-x-60\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 15.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-60.5 utilities */
+.ltr .space-x-60\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 15.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-61.5 utilities */
+.rtl .space-x-61\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 15.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-61.5 utilities */
+.ltr .space-x-61\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 15.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-62.5 utilities */
+.rtl .space-x-62\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 15.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-62.5 utilities */
+.ltr .space-x-62\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 15.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-63.5 utilities */
+.rtl .space-x-63\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 15.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-63.5 utilities */
+.ltr .space-x-63\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 15.875rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-64.5 utilities */
+.rtl .space-x-64\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 16.125rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-64.5 utilities */
+.ltr .space-x-64\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 16.125rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-65.5 utilities */
+.rtl .space-x-65\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 16.375rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-65.5 utilities */
+.ltr .space-x-65\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 16.375rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-66.5 utilities */
+.rtl .space-x-66\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 16.625rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-66.5 utilities */
+.ltr .space-x-66\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 16.625rem;
+  margin-left: 0;
+}
+
+/* RTL specific space-x-67.5 utilities */
+.rtl .space-x-67\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: 16.875rem;
+  margin-right: 0;
+}
+
+/* LTR specific space-x-67.5 utilities */
+.ltr .space-x-67\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: 16.875rem;
+  margin-left: 0;
+}
+
+/* RTL/LTR specific text alignment */
+.rtl .text-left {
+  text-align: right;
+}
+
+.ltr .text-right {
+  text-align: left;
+}
+
+/* RTL specific border utilities */
+.rtl .border-r-2 {
+  border-right: unset;
+  border-left: 2px solid;
+}
+
+.rtl .border-l-2 {
+  border-left: unset;
+  border-right: 2px solid;
+}
+
+/* LTR specific border utilities */
+.ltr .border-l-2 {
+  border-left: 2px solid;
+  border-right: unset;
+}
+
+.ltr .border-r-2 {
+  border-right: 2px solid;
+  border-left: unset;
+}
+
+/* RTL/LTR specific flex directions */
+.rtl .flex-row {
+  flex-direction: row-reverse;
+}
+
+.ltr .flex-row-reverse {
+  flex-direction: row;
+}
+
+/* RTL specific gradient utilities */
+.rtl .from-indigo-600 {
+  background-image: linear-gradient(to left, var(--tw-gradient-stops));
+}
+
+.rtl .to-purple-600 {
+  background-image: linear-gradient(to left, var(--tw-gradient-stops));
+}
+
+/* LTR specific gradient utilities */
+.ltr .from-indigo-600 {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+}
+
+.ltr .to-purple-600 {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+}
+
 /* Custom animations and modern styling */
 @layer utilities {
   /* Glassmorphism effect */
@@ -290,6 +1864,113 @@
 
 [dir="rtl"] .slide-in-right {
   animation: slide-in-left 0.5s ease-out;
+}
+
+/* RTL Sidebar specific fixes */
+.rtl .sidebar-item {
+  margin-left: 0;
+  margin-right: 0.75rem;
+}
+
+.rtl .sidebar-item-icon {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+
+.rtl .sidebar-children {
+  margin-left: 0;
+  margin-right: 1.5rem;
+}
+
+/* Fix for space-x utilities in RTL */
+.rtl .space-x-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: calc(0.75rem * var(--tw-space-x-reverse));
+  margin-right: calc(0.75rem * calc(1 - var(--tw-space-x-reverse)));
+}
+
+.rtl .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-left: calc(1rem * var(--tw-space-x-reverse));
+  margin-right: calc(1rem * calc(1 - var(--tw-space-x-reverse)));
+}
+
+/* Fix for margin utilities in RTL */
+.rtl .ml-3 {
+  margin-left: 0;
+  margin-right: 0.75rem;
+}
+
+.rtl .ml-6 {
+  margin-left: 0;
+  margin-right: 1.5rem;
+}
+
+.rtl .mr-3 {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+
+.rtl .mr-6 {
+  margin-right: 0;
+  margin-left: 1.5rem;
+}
+
+/* Fix for padding utilities in RTL */
+.rtl .pl-10 {
+  padding-left: 0;
+  padding-right: 2.5rem;
+}
+
+.rtl .pr-4 {
+  padding-right: 0;
+  padding-left: 1rem;
+}
+
+/* Fix for text alignment in RTL */
+.rtl .text-left {
+  text-align: right;
+}
+
+.rtl .text-right {
+  text-align: left;
+}
+
+/* Fix for flexbox in RTL */
+.rtl .justify-start {
+  justify-content: flex-end;
+}
+
+.rtl .justify-end {
+  justify-content: flex-start;
+}
+
+.rtl .items-start {
+  align-items: flex-end;
+}
+
+.rtl .items-end {
+  align-items: flex-start;
+}
+
+/* Additional RTL fixes for sidebar */
+.rtl .border-r-2 {
+  border-right: 0;
+  border-left: 2px solid;
+}
+
+.rtl .border-l-2 {
+  border-left: 0;
+  border-right: 2px solid;
+}
+
+/* Fix for gradient direction in RTL */
+.rtl .from-indigo-600 {
+  background-image: linear-gradient(to left, var(--tw-gradient-stops));
+}
+
+.rtl .to-purple-600 {
+  background-image: linear-gradient(to left, var(--tw-gradient-stops));
 }
 
 /* Dark mode support */

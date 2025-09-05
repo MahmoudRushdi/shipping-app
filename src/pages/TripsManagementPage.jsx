@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function TripsManagementPage() {
     const navigate = useNavigate();
+    const { language, tr } = useLanguage();
     const [trips, setTrips] = useState([]);
     const [shipments, setShipments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +74,7 @@ export default function TripsManagementPage() {
     }, []);
 
     const handleDelete = async (tripId) => {
-        if (window.confirm('هل أنت متأكد من أنك تريد حذف هذه الرحلة؟\n\nملاحظة: سيتم إعادة الشحنات المرتبطة إلى حالة معلق.')) {
+        if (window.confirm(`${tr('confirmDeleteTrip')}\n\n${tr('noteShipmentsReturned')}`)) {
             try {
                 console.log('Deleting trip:', tripId);
                 
@@ -108,20 +110,20 @@ export default function TripsManagementPage() {
                 
                 const shipmentCount = tripToDelete?.shipmentIds?.length || 0;
                 if (shipmentCount > 0) {
-                    alert(`تم حذف الرحلة بنجاح!\n\nتم إعادة ${shipmentCount} شحنة إلى حالة معلق.\n\nيمكنك التحقق من الشحنات في صفحة إدارة الشحنات.`);
+                    alert(`${tr('tripDeletedSuccess')}\n\n${tr('shipmentsReturnedToPending')} ${shipmentCount} ${tr('shipmentsToPending')}\n\n${tr('checkShipmentsPage')}`);
                 } else {
-                    alert('تم حذف الرحلة بنجاح!');
+                    alert(tr('tripDeletedSuccess'));
                 }
                 
                 // Optional: Redirect to shipments page to verify the changes
                 setTimeout(() => {
-                    if (window.confirm('هل تريد الانتقال إلى صفحة إدارة الشحنات للتحقق من حالة الشحنات؟')) {
+                    if (window.confirm(tr('goToShipmentsPage'))) {
                         navigate('/shipments');
                     }
                 }, 1000);
             } catch (error) {
                 console.error('Error deleting trip:', error);
-                alert('حدث خطأ أثناء حذف الرحلة: ' + error.message);
+                alert(`${tr('errorDeletingTrip')} ${error.message}`);
             }
         }
     };
@@ -141,14 +143,14 @@ export default function TripsManagementPage() {
 
     const getStatusText = (status) => {
         switch (status) {
-            case 'planned': return 'مخططة';
-            case 'in-progress': return 'قيد التنفيذ';
-            case 'completed': return 'مكتملة';
-            case 'cancelled': return 'ملغية';
-            case 'قيد الانتظار': return 'قيد الانتظار';
-            case 'قيد النقل': return 'قيد النقل';
-            case 'تم التسليم': return 'تم التسليم';
-            default: return 'غير محدد';
+            case 'planned': return tr('planned');
+            case 'in-progress': return tr('inProgress');
+            case 'completed': return tr('completed');
+            case 'cancelled': return tr('cancelled');
+            case 'قيد الانتظار': return tr('waiting');
+            case 'قيد النقل': return tr('inTransit');
+            case 'تم التسليم': return tr('delivered');
+            default: return tr('notSpecified');
         }
     };
 
@@ -170,7 +172,7 @@ export default function TripsManagementPage() {
             return destination;
         }
         
-        return `رحلة ${trip.id.slice(-6)}`;
+        return `${tr('trip')} ${trip.id.slice(-6)}`;
     };
 
     // Get shipments for a specific trip
@@ -201,11 +203,11 @@ export default function TripsManagementPage() {
                 }
             }
             
-            if (shipment.hwalaFeePaymentMethod === 'collect') {
-                const hwalaVal = parseFloat(shipment.hwalaFee) || 0;
-                if (hwalaVal > 0) {
-                    const currency = shipment.hwalaFeeCurrency || 'USD';
-                    totals[currency] = (totals[currency] || 0) + hwalaVal;
+            if (shipment.transferFeePaymentMethod === 'collect') {
+                const transferVal = parseFloat(shipment.transferFee) || 0;
+                if (transferVal > 0) {
+                    const currency = shipment.transferFeeCurrency || 'USD';
+                    totals[currency] = (totals[currency] || 0) + transferVal;
                 }
             }
         });
@@ -265,7 +267,7 @@ export default function TripsManagementPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-full mx-auto"
                 variants={containerVariants}
@@ -282,16 +284,16 @@ export default function TripsManagementPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة للوحة التحكم
+                                {tr('backToDashboard')}
                             </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إدارة الرحلات</h1>
+                            <h1 className="text-3xl font-bold gradient-text">{tr('tripsManagement')}</h1>
                         </div>
                         <AnimatedButton
                             onClick={() => navigate('/create-trip')}
                             variant="primary"
                             icon={PlusCircleIcon}
                         >
-                            إنشاء رحلة جديدة
+                            {tr('Create New Trip')}
                         </AnimatedButton>
                     </div>
                 </motion.div>
@@ -299,11 +301,11 @@ export default function TripsManagementPage() {
                 {/* Statistics */}
                 <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" variants={itemVariants}>
                     <AnimatedCard className="p-6">
-                                                            <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-600">إجمالي الرحلات</p>
-                                            <p className="text-2xl font-bold text-gray-900">{filteredTrips.length}</p>
-                                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">{tr('totalTrips')}</p>
+                                <p className="text-2xl font-bold text-gray-900">{filteredTrips.length}</p>
+                            </div>
                             <div className="p-3 bg-blue-100 rounded-lg">
                                 <Route className="w-6 h-6 text-blue-600" />
                             </div>
@@ -311,13 +313,13 @@ export default function TripsManagementPage() {
                     </AnimatedCard>
                     
                     <AnimatedCard className="p-6">
-                                                            <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-600">رحلات مع شحنات</p>
-                                            <p className="text-2xl font-bold text-gray-900">
-                                                {filteredTrips.filter(t => t.shipmentIds && t.shipmentIds.length > 0).length}
-                                            </p>
-                                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">{tr('tripsWithShipments')}</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {filteredTrips.filter(t => t.shipmentIds && t.shipmentIds.length > 0).length}
+                                </p>
+                            </div>
                             <div className="p-3 bg-green-100 rounded-lg">
                                 <Package className="w-6 h-6 text-green-600" />
                             </div>
@@ -325,13 +327,13 @@ export default function TripsManagementPage() {
                     </AnimatedCard>
                     
                     <AnimatedCard className="p-6">
-                                                            <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-600">قيد الانتظار</p>
-                                            <p className="text-2xl font-bold text-gray-900">
-                                                {filteredTrips.filter(t => t.status === 'قيد الانتظار' || t.status === 'planned').length}
-                                            </p>
-                                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">{tr('pending')}</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {filteredTrips.filter(t => t.status === 'قيد الانتظار' || t.status === 'planned').length}
+                                </p>
+                            </div>
                             <div className="p-3 bg-yellow-100 rounded-lg">
                                 <Calendar className="w-6 h-6 text-yellow-600" />
                             </div>
@@ -339,13 +341,13 @@ export default function TripsManagementPage() {
                     </AnimatedCard>
                     
                     <AnimatedCard className="p-6">
-                                                            <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-600">قيد النقل</p>
-                                            <p className="text-2xl font-bold text-gray-900">
-                                                {filteredTrips.filter(t => t.status === 'قيد النقل' || t.status === 'in-progress').length}
-                                            </p>
-                                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">{tr('inTransit')}</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {filteredTrips.filter(t => t.status === 'قيد النقل' || t.status === 'in-progress').length}
+                                </p>
+                            </div>
                             <div className="p-3 bg-blue-100 rounded-lg">
                                 <Truck className="w-6 h-6 text-blue-600" />
                             </div>
@@ -363,11 +365,11 @@ export default function TripsManagementPage() {
                                     variant="outline"
                                     size="sm"
                                 >
-                                    {showFilters ? 'إخفاء الفلاتر' : 'فلاتر متقدمة'}
+                                    {showFilters ? tr('hideFilters') : tr('advancedFilters')}
                                 </AnimatedButton>
                                 
                                 <span className="text-sm text-gray-600">
-                                    عرض {filteredTrips.length} من {trips.length} رحلة
+                                    {tr('showingTrips')} {filteredTrips.length} {tr('of')} {trips.length} {tr('trip')}
                                 </span>
                             </div>
                         </div>
@@ -384,7 +386,7 @@ export default function TripsManagementPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {/* Date Range Filters */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('fromDate')}</label>
                                             <input
                                                 type="date"
                                                 value={filters.dateFrom}
@@ -393,7 +395,7 @@ export default function TripsManagementPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('toDate')}</label>
                                             <input
                                                 type="date"
                                                 value={filters.dateTo}
@@ -404,35 +406,35 @@ export default function TripsManagementPage() {
                                         
                                         {/* Status Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('status')}</label>
                                             <select
                                                 value={filters.status}
                                                 onChange={(e) => handleFilterChange('status', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع الحالات</option>
-                                                <option value="قيد الانتظار">قيد الانتظار</option>
-                                                <option value="قيد النقل">قيد النقل</option>
-                                                <option value="تم التسليم">تم التسليم</option>
-                                                <option value="planned">مخططة</option>
-                                                <option value="in-progress">قيد التنفيذ</option>
-                                                <option value="completed">مكتملة</option>
-                                                <option value="cancelled">ملغية</option>
+                                                <option value="">{tr('allStatuses')}</option>
+                                                <option value="قيد الانتظار">{tr('waiting')}</option>
+                                                <option value="قيد النقل">{tr('inTransit')}</option>
+                                                <option value="تم التسليم">{tr('delivered')}</option>
+                                                <option value="planned">{tr('planned')}</option>
+                                                <option value="in-progress">{tr('inProgress')}</option>
+                                                <option value="completed">{tr('completed')}</option>
+                                                <option value="cancelled">{tr('cancelled')}</option>
                                             </select>
                                         </div>
                                         
                                         {/* Vehicle Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">المركبة</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('vehicle')}</label>
                                             <select
                                                 value={filters.vehicle}
                                                 onChange={(e) => handleFilterChange('vehicle', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع المركبات</option>
+                                                <option value="">{tr('allVehicles')}</option>
                                                 {vehicles.map(vehicle => (
                                                     <option key={vehicle.id} value={vehicle.vehicleNumber}>
-                                                        {vehicle.vehicleNumber} - {vehicle.vehicleType || 'غير محدد'}
+                                                        {vehicle.vehicleNumber} - {vehicle.vehicleType || tr('notSpecified')}
                                                     </option>
                                                 ))}
                                             </select>
@@ -440,13 +442,13 @@ export default function TripsManagementPage() {
                                         
                                         {/* Destination Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">الوجهة</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('destination')}</label>
                                             <select
                                                 value={filters.destination}
                                                 onChange={(e) => handleFilterChange('destination', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع الوجهات</option>
+                                                <option value="">{tr('allDestinations')}</option>
                                                 {getUniqueDestinations().map(dest => (
                                                     <option key={dest} value={dest}>{dest}</option>
                                                 ))}
@@ -454,14 +456,13 @@ export default function TripsManagementPage() {
                                         </div>
                                     </div>
                                     
-                                    {/* Clear Filters Button */}
                                     <div className="mt-4 flex justify-end">
                                         <AnimatedButton
                                             onClick={clearFilters}
                                             variant="outline"
                                             size="sm"
                                         >
-                                            مسح جميع الفلاتر
+                                            {tr('clearAllFilters')}
                                         </AnimatedButton>
                                     </div>
                                 </motion.div>
@@ -478,7 +479,7 @@ export default function TripsManagementPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل الرحلات..."
+                                text={tr('Loading trips...')}
                             />
                         </div>
                     ) : (
@@ -509,7 +510,7 @@ export default function TripsManagementPage() {
                                                             </h3>
                                                             <p className="text-sm text-gray-600 flex items-center gap-1">
                                                                 <MapPin className="w-4 h-4" />
-                                                                {trip.destination || 'غير محدد'}
+                                                                {trip.destination || tr('notSpecified')}
                                                             </p>
                                                         </div>
                                                         <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusColor(trip.status)}`}>
@@ -519,16 +520,16 @@ export default function TripsManagementPage() {
                                                     
                                                     <div className="space-y-2 mb-4">
                                                         {trip.ownerName && (
-                                                            <p className="text-sm"><strong>صاحب السيارة:</strong> {trip.ownerName}</p>
+                                                            <p className="text-sm"><strong>{tr('vehicleOwner')}:</strong> {trip.ownerName}</p>
                                                         )}
                                                         {trip.departureDate && (
-                                                            <p className="text-sm"><strong>تاريخ المغادرة:</strong> {trip.departureDate}</p>
+                                                            <p className="text-sm"><strong>{tr('departureDate')}:</strong> {trip.departureDate}</p>
                                                         )}
                                                         {trip.createdAt && (
-                                                            <p className="text-sm"><strong>تاريخ الإنشاء:</strong> {trip.createdAt.toLocaleDateString('ar-EG')}</p>
+                                                            <p className="text-sm"><strong>{tr('creationDate')}:</strong> {trip.createdAt.toLocaleDateString('ar-EG')}</p>
                                                         )}
-                                                        <p className="text-sm"><strong>عدد الشحنات:</strong> {tripShipments.length}</p>
-                                                        <p className="text-sm"><strong>إجمالي التحصيلات:</strong> {totalCollections}</p>
+                                                        <p className="text-sm"><strong>{tr('numberOfShipments')}:</strong> {tripShipments.length}</p>
+                                                        <p className="text-sm"><strong>{tr('totalCollections')}:</strong> {totalCollections}</p>
                                                     </div>
                                                     
                                                     <div className="flex items-center justify-end gap-2 border-t pt-3">
@@ -537,7 +538,7 @@ export default function TripsManagementPage() {
                                                             variant="outline"
                                                             size="sm"
                                                         >
-                                                            عرض التفاصيل
+                                                            {tr('View Details')}
                                                         </AnimatedButton>
                                                         <AnimatedButton
                                                             onClick={() => handleDelete(trip.id)}
@@ -559,14 +560,14 @@ export default function TripsManagementPage() {
                                 <table className="w-full text-sm text-right">
                                     <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                                         <tr>
-                                            <th className="p-4 font-semibold">اسم الرحلة</th>
-                                            <th className="p-4 font-semibold">الوجهة</th>
-                                            <th className="p-4 font-semibold">صاحب السيارة</th>
-                                            <th className="p-4 font-semibold">تاريخ الإنشاء</th>
-                                            <th className="p-4 font-semibold">عدد الشحنات</th>
-                                            <th className="p-4 font-semibold">إجمالي التحصيلات</th>
-                                            <th className="p-4 font-semibold">الحالة</th>
-                                            <th className="p-4 font-semibold">إجراءات</th>
+                                            <th className="p-4 font-semibold">{tr('Trip Name')}</th>
+                                            <th className="p-4 font-semibold">{tr('Destination')}</th>
+                                            <th className="p-4 font-semibold">{tr('Driver')}</th>
+                                            <th className="p-4 font-semibold">{tr('Creation Date')}</th>
+                                            <th className="p-4 font-semibold">{tr('Number of Shipments')}</th>
+                                            <th className="p-4 font-semibold">{tr('Total Collections')}</th>
+                                            <th className="p-4 font-semibold">{tr('Status')}</th>
+                                            <th className="p-4 font-semibold">{tr('Actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -591,7 +592,7 @@ export default function TripsManagementPage() {
                                                                 {tripDisplayName}
                                                             </div>
                                                         </td>
-                                                        <td className="p-4">{trip.destination || 'غير محدد'}</td>
+                                                        <td className="p-4">{trip.destination || tr('notSpecified')}</td>
                                                         <td className="p-4">{trip.ownerName || '-'}</td>
                                                         <td className="p-4">
                                                             {trip.createdAt ? trip.createdAt.toLocaleDateString('ar-EG') : '-'}
@@ -617,7 +618,7 @@ export default function TripsManagementPage() {
                                                                      variant="outline"
                                                                      size="sm"
                                                                  >
-                                                                     عرض التفاصيل
+                                                                     {tr('View Details')}
                                                                  </AnimatedButton>
                                                                 <AnimatedButton
                                                                     onClick={() => handleDelete(trip.id)}
@@ -646,7 +647,7 @@ export default function TripsManagementPage() {
                             transition={{ delay: 0.5 }}
                         >
                             <Route className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 text-lg">لا توجد رحلات. قم بإنشاء رحلة جديدة.</p>
+                            <p className="text-gray-500 text-lg">{tr('noTrips')}</p>
                         </motion.div>
                     )}
                 </AnimatedCard>

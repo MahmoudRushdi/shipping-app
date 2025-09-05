@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebaseConfig';
-import { PlusCircleIcon, SearchIcon, LogoutIcon, LinkIcon, ClipboardIcon, DownloadIcon, UserCogIcon, ClipboardListIcon, TrashIcon, PrinterIcon } from '../components/Icons';
+import { useLanguage } from '../hooks/useLanguage.jsx';
+import { PlusCircleIcon, SearchIcon, LogoutIcon, LinkIcon, ClipboardIcon, DownloadIcon, UserCogIcon, ClipboardListIcon, TrashIcon, PrinterIcon, Menu } from '../components/Icons';
 import StatusSelector from '../components/StatusSelector';
 import AddShipmentModal from '../components/AddShipmentModal';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedStats from '../components/AnimatedStats';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedLoader from '../components/AnimatedLoader';
+import Sidebar from '../components/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Package, 
@@ -25,7 +27,7 @@ import {
   CreditCard,
   ArrowLeftRight
 } from 'lucide-react';
-import logo from '../assets/AL-MOSTAKEM-1.png';
+
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Link, useNavigate } from 'react-router-dom';
@@ -78,12 +80,14 @@ const formatMultiCurrency = (shipment) => {
 
 export default function ShipmentsDashboard({ user, role }) {
   const navigate = useNavigate();
+  const { language, tr, isRTL } = useLanguage();
   const [shipments, setShipments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copySuccess, setCopySuccess] = useState('');
   const [selectedView, setSelectedView] = useState('all');
+  // Sidebar local state (reverted to original layout with Sidebar)
 
   useEffect(() => {
     setIsLoading(true);
@@ -149,7 +153,8 @@ export default function ShipmentsDashboard({ user, role }) {
                          (shipment.courierName && shipment.courierName.toLowerCase().includes(searchTerm.toLowerCase()));
     
     if (selectedView === 'all') return matchesSearch;
-    if (selectedView === 'pending') return matchesSearch && (shipment.status === 'pending' || shipment.status === 'معلق');
+    if (selectedView === 'pending') return matchesSearch && (shipment.status === 'pending' || shipment.status ===
+       'معلق');
     if (selectedView === 'in-transit') return matchesSearch && (shipment.status === 'in-transit' || shipment.status === 'قيد النقل');
     if (selectedView === 'delivered') return matchesSearch && (shipment.status === 'delivered' || shipment.status === 'تم التسليم');
     
@@ -284,7 +289,7 @@ export default function ShipmentsDashboard({ user, role }) {
             <body>
                 <div class="controls"><button onclick="window.print()">طباعة</button><div class="a5-reminder"><strong>ملاحظة:</strong> تأكد من اختيار حجم الورق A5 والاتجاه الأفقي (Landscape) في إعدادات الطابعة.</div></div>
                 <div class="invoice-box">
-                    <div class="header"><div class="company-title"><h2>شركة المستقيم</h2><p>للنقل السريع والشحن الدولي</p></div><img src="${logo}" class="logo" alt="شعار الشركة" /><div class="policy-info"><div>البوليصة: ${shipment.shipmentId}</div><div>التاريخ: ${shipment.date}</div></div></div>
+                    <div class="header"><div class="company-title"><h2>شركة النقل</h2><p>للنقل السريع والشحن الدولي</p></div><!-- Logo temporarily hidden <img src="${logo}" class="logo" alt="شعار الشركة" /> --><div class="policy-info"><div>البوليصة: ${shipment.shipmentId}</div><div>التاريخ: ${shipment.date}</div></div></div>
                     <div class="main-content">
                         <div class="left-column">
                             <div class="details-section">
@@ -335,146 +340,109 @@ export default function ShipmentsDashboard({ user, role }) {
     visible: { opacity: 1, y: 0 }
   };
 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const toggleSidebar = () => { setSidebarOpen(!sidebarOpen); };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans relative overflow-hidden" dir="rtl">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/30 via-purple-50/30 to-pink-50/30"></div>
-      <div className="relative z-10">
-      <motion.div 
-        className="max-w-full mx-auto"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Header Section with Logout Button */}
-        <motion.div 
-          className="text-center mb-8 relative"
-          variants={itemVariants}
-        >
-          {/* Logout Button - Top Right */}
-          <div className="absolute top-0 right-0">
-            <AnimatedButton
-              onClick={handleLogout}
-              variant="outline"
-              icon={LogoutIcon}
-              className="bg-white/80 backdrop-blur-sm border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-600 shadow-md"
-            >
-              تسجيل الخروج
-            </AnimatedButton>
-          </div>
-
-          <motion.img 
-            src={logo} 
-            alt="شعار الشركة" 
-            className="mx-auto h-32 w-auto mb-4"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          />
-          <motion.h1 
-            className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2"
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-          >
-            لوحة تحكم الشحنات
-          </motion.h1>
-          <motion.p 
-            className="text-lg text-gray-600"
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            مرحباً، {user.displayName || user.email}
-          </motion.p>
-        </motion.div>
-
-        {/* Statistics Cards */}
-        <motion.div 
-          className="mb-8"
-          variants={itemVariants}
-        >
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">إحصائيات الشحنات</h2>
-            <p className="text-gray-600">نظرة عامة على حالة الشحنات في النظام</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <AnimatedStats
-            title="إجمالي الشحنات"
-            value={stats.totalShipments}
-            icon={Package}
-            color="blue"
-            delay={0}
-            formatValue={(val) => val.toLocaleString()}
-          />
-          <AnimatedStats
-            title="الشحنات المعلقة"
-            value={stats.pendingShipments}
-            icon={Clock}
-            color="orange"
-            delay={1}
-            formatValue={(val) => val.toLocaleString()}
-          />
-          <AnimatedStats
-            title="قيد النقل"
-            value={stats.inTransitShipments}
-            icon={Truck}
-            color="purple"
-            delay={2}
-            formatValue={(val) => val.toLocaleString()}
-          />
-          <AnimatedStats
-            title="تم التسليم"
-            value={stats.deliveredShipments}
-            icon={TrendingUp}
-            color="green"
-            delay={3}
-            formatValue={(val) => val.toLocaleString()}
-          />
-          </div>
-        </motion.div>
-
-        {/* Quick Actions Section */}
-        <motion.div 
-          className="mb-8"
-          variants={itemVariants}
-        >
-          <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-2">العمليات السريعة</h2>
-            <p className="text-gray-600">اختر العملية المطلوبة من القائمة أدناه</p>
-          </div>
-        </motion.div>
-
-        {/* Controls Section */}
-        <AnimatedCard className="mb-8 p-6 bg-white/90 backdrop-blur-sm border border-gray-200/50 shadow-xl" delay={4}>
-          <div className="space-y-6">
-            {/* Section Header */}
-            <div className="text-center border-b border-gray-200 pb-4">
-              <h3 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">أدوات التحكم والبحث</h3>
-              <p className="text-sm text-gray-600">ابحث في الشحنات واختر العمليات المطلوبة</p>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} role={role} />
+      {/* Main */}
+      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+        <div className="p-6">
+          {/* Header with Sidebar Toggle */}
+          <div className="flex items-center justify-between mb-6">
+            <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-lg bg-white shadow-sm hover:bg-gray-50 transition-colors"
+              >
+                <Menu className="w-5 h-5 text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{tr('shipmentsDashboard')}</h1>
+                <p className="text-gray-600">{tr('welcome')} {user.displayName || user.email}</p>
+              </div>
             </div>
             
-            {/* Search and Filters Row */}
+            {/* Logout Button */}
+            <div className="flex gap-2">
+              <AnimatedButton
+                onClick={() => navigate('/')}
+                variant="outline"
+                className="bg-white border-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600"
+              >
+                {tr('goToHome')}
+              </AnimatedButton>
+              <AnimatedButton
+                onClick={handleLogout}
+                variant="outline"
+                icon={LogoutIcon}
+                className="bg-white border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+              >
+                {tr('logout')}
+              </AnimatedButton>
+            </div>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <AnimatedStats
+              title={tr('totalShipments')}
+              value={stats.totalShipments}
+              icon={Package}
+              color="blue"
+              delay={0}
+              formatValue={(val) => val.toLocaleString()}
+            />
+            <AnimatedStats
+              title={tr('pendingShipments')}
+              value={stats.pendingShipments}
+              icon={Clock}
+              color="orange"
+              delay={1}
+              formatValue={(val) => val.toLocaleString()}
+            />
+            <AnimatedStats
+              title={tr('inTransitShipments')}
+              value={stats.inTransitShipments}
+              icon={Truck}
+              color="purple"
+              delay={2}
+              formatValue={(val) => val.toLocaleString()}
+            />
+            <AnimatedStats
+              title={tr('deliveredShipments')}
+              value={stats.deliveredShipments}
+              icon={TrendingUp}
+              color="green"
+              delay={3}
+              formatValue={(val) => val.toLocaleString()}
+            />
+          </div>
+
+          {/* Search and Filters */}
+          <AnimatedCard className="mb-8 p-6 bg-white shadow-sm">
             <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
               {/* Search Bar */}
               <div className="relative flex-grow max-w-md">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <SearchIcon className={`absolute top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 ${isRTL ? 'right-3' : 'left-3'}`} />
                 <input 
                   type="text" 
-                  placeholder="ابحث برقم الشحنة، اسم العميل، أو المندوب..." 
+                  placeholder={tr('searchPlaceholder')} 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/80 backdrop-blur-sm" 
+                  className={`w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`} 
                 />
               </div>
 
               {/* View Filters */}
               <div className="flex gap-2">
                 {[
-                  { key: 'all', label: 'الكل', color: 'blue' },
-                  { key: 'pending', label: 'معلق', color: 'orange' },
-                  { key: 'in-transit', label: 'قيد النقل', color: 'purple' },
-                  { key: 'delivered', label: 'تم التسليم', color: 'green' }
+                  { key: 'all', label: tr('all'), color: 'blue' },
+                  { key: 'pending', label: tr('pending'), color: 'orange' },
+                  { key: 'in-transit', label: tr('inTransit'), color: 'purple' },
+                  { key: 'delivered', label: tr('delivered'), color: 'green' }
                 ].map((filter) => (
                   <AnimatedButton
                     key={filter.key}
@@ -488,344 +456,196 @@ export default function ShipmentsDashboard({ user, role }) {
                 ))}
               </div>
             </div>
+          </AnimatedCard>
 
-            {/* Action Buttons - Organized in Professional Categories */}
-            <div className="space-y-8">
-              {/* Shipping Operations */}
-              <div className="text-center">
-                <h4 className="text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">عمليات الشحن</h4>
-                <div className="flex flex-wrap gap-4 justify-center">
-                  <AnimatedButton
-                    onClick={() => navigate('/add-shipment')}
-                    variant="primary"
-                    icon={PlusCircleIcon}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg transform hover:scale-105 transition-all duration-200"
-                  >
-                    شحنة جديدة
-                  </AnimatedButton>
-                  <AnimatedButton
-                    onClick={() => navigate('/shipments')}
-                    variant="secondary"
-                    icon={ClipboardListIcon}
-                    className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                  >
-                    إدارة الشحنات
-                  </AnimatedButton>
+          {/* Shipments Table */}
+          <AnimatedCard className="bg-white shadow-sm">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{tr('shipmentsList')}</h2>
+                  <p className="text-gray-600">{tr('displayManageShipments')}</p>
                 </div>
+                <AnimatedButton
+                  onClick={() => navigate('/add-shipment')}
+                  variant="primary"
+                  icon={PlusCircleIcon}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {tr('addNewShipment')}
+                </AnimatedButton>
               </div>
-
-              {/* Trip Operations */}
-              <div className="text-center">
-                <h4 className="text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">عمليات الرحلات</h4>
-                <div className="flex flex-wrap gap-4 justify-center">
-                  <AnimatedButton
-                    onClick={() => navigate('/manifests')}
-                    variant="secondary"
-                    icon={Route}
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg transform hover:scale-105 transition-all duration-200"
-                  >
-                    إنشاء رحلة
-                  </AnimatedButton>
-                  <AnimatedButton
-                    onClick={() => navigate('/trips')}
-                    variant="secondary"
-                    icon={Calendar}
-                    className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                  >
-                    إدارة الرحلات
-                  </AnimatedButton>
-                </div>
-              </div>
-
-              {/* Vehicle Management */}
-              <div className="text-center">
-                <h4 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-4">إدارة المركبات</h4>
-                <div className="flex flex-wrap gap-4 justify-center">
-                  <AnimatedButton
-                    onClick={() => navigate('/vehicles')}
-                    variant="secondary"
-                    icon={Truck}
-                    className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                  >
-                    إدارة السيارات
-                  </AnimatedButton>
-                </div>
-              </div>
-
-              {/* Drivers Management Operations */}
-              {(role === 'admin' || role === 'employee') && (
-                <div className="text-center">
-                  <h4 className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-4">إدارة المناديب والعمولات</h4>
-                  <div className="flex flex-wrap gap-4 justify-center">
-                    <AnimatedButton
-                      onClick={() => navigate('/drivers')}
-                      variant="secondary"
-                      icon={Users}
-                      className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      إدارة المناديب
-                    </AnimatedButton>
-                    <AnimatedButton
-                      onClick={() => navigate('/driver-commissions')}
-                      variant="secondary"
-                      icon={DollarSign}
-                      className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      أجور المناديب
-                    </AnimatedButton>
-                  </div>
-                </div>
-              )}
-
-              {/* النظام المحاسبي */}
-              {(role === 'admin' || role === 'employee') && (
-                <div className="text-center">
-                  <h4 className="text-lg font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">النظام المحاسبي</h4>
-                  <div className="flex flex-wrap gap-4 justify-center">
-                    <AnimatedButton
-                      onClick={() => navigate('/daily-journal')}
-                      variant="secondary"
-                      icon={BookOpen}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700 shadow-lg transform hover:scale-105 transition-all duration-200"
-                    >
-                      دفتر اليومية
-                    </AnimatedButton>
-                    <AnimatedButton
-                      onClick={() => navigate('/debts-management')}
-                      variant="secondary"
-                      icon={CreditCard}
-                      className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      إدارة الديون
-                    </AnimatedButton>
-                    <AnimatedButton
-                      onClick={() => navigate('/branch-transfers')}
-                      variant="secondary"
-                      icon={ArrowLeftRight}
-                      className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      عمليات زمم
-                    </AnimatedButton>
-                  </div>
-                </div>
-              )}
-
-              {/* Administrative Operations */}
-              {(role === 'admin' || role === 'employee') && (
-                <div className="text-center">
-                  <h4 className="text-lg font-semibold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent mb-4">الإدارة والتحكم</h4>
-                  <div className="flex flex-wrap gap-4 justify-center">
-                    <AnimatedButton
-                      onClick={() => navigate('/branches')}
-                      variant="secondary"
-                      icon={Building}
-                      className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      إدارة الفروع
-                    </AnimatedButton>
-                    <AnimatedButton
-                      onClick={() => navigate('/branch-entries')}
-                      variant="secondary"
-                      icon={ClipboardListIcon}
-                      className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      إدخالات الفروع
-                    </AnimatedButton>
-                    {role === 'admin' && (
-                      <AnimatedButton
-                        onClick={() => navigate('/admin')}
-                        variant="secondary"
-                        icon={UserCogIcon}
-                        className="bg-white text-gray-700 hover:bg-gray-50 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200"
-                      >
-                        إدارة المستخدمين
-                      </AnimatedButton>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
-        </AnimatedCard>
-
-        {/* Shipments Table */}
-        <AnimatedCard className="overflow-hidden" delay={5}>
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">قائمة الشحنات</h2>
-            <p className="text-gray-600">عرض وإدارة جميع الشحنات في النظام</p>
-          </div>
-          {isLoading ? (
-            <div className="p-20 text-center">
-              <AnimatedLoader 
-                type="ring" 
-                size="xl" 
-                color="indigo" 
-                text="جاري تحميل الشحنات..."
-              />
-            </div>
-          ) : (
-            <>
-              {/* Mobile View */}
-              <div className="md:hidden p-4">
-                <div className="p-4 space-y-4">
-                  <AnimatePresence>
-                    {filteredShipments.map((shipment, index) => (
-                      <motion.div
-                        key={shipment.id}
-                        variants={itemVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit="hidden"
-                        transition={{ delay: index * 0.1 }}
-                        className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200"
-                      >
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="font-bold text-indigo-600 text-lg">{shipment.shipmentId}</span>
-                          <span className="text-sm text-gray-500">{shipment.date}</span>
-                        </div>
-                        <div className="mb-3">
-                          <p className="font-semibold text-gray-800">{shipment.customerName}</p>
-                          <p className="text-sm text-gray-600 flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            {shipment.governorate}
-                          </p>
-                        </div>
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="font-semibold text-gray-700">
-                            المبلغ: {formatMultiCurrency(shipment)}
-                          </span>
-                          <StatusSelector 
-                            currentStatus={shipment.status} 
-                            onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)} 
-                          />
-                        </div>
-                        <div className="flex items-center justify-end gap-3 border-t pt-3">
-                          <AnimatedButton
-                            onClick={() => handlePrintPolicy(shipment)}
-                            variant="outline"
-                            size="sm"
-                            icon={PrinterIcon}
-                          />
-                          <AnimatedButton
-                            onClick={() => handleCopyLink(shipment.shipmentId)}
-                            variant="outline"
-                            size="sm"
-                            icon={LinkIcon}
-                          />
-                          <AnimatedButton
-                            onClick={() => handleDeleteShipment(shipment.id)}
-                            variant="outline"
-                            size="sm"
-                            icon={TrashIcon}
-                            className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
+            
+            {isLoading ? (
+              <div className="p-20 text-center">
+                <AnimatedLoader 
+                  type="ring" 
+                  size="xl" 
+                  color="indigo" 
+                  text={tr('loadingShipments')}
+                />
               </div>
-
-              {/* Desktop View */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm text-right">
-                  <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
-                    <tr>
-                      <th className="p-4 font-semibold text-center">رقم الشحنة</th>
-                      <th className="p-4 font-semibold text-center">العميل</th>
-                      <th className="p-4 font-semibold text-center">المحافظة</th>
-                      <th className="p-4 font-semibold text-center">قيمة البضاعة</th>
-                      <th className="p-4 font-semibold text-center">المبلغ المحصل</th>
-                      <th className="p-4 font-semibold text-center">التاريخ</th>
-                      <th className="p-4 font-semibold text-center">الحالة</th>
-                      <th className="p-4 font-semibold text-center">إجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
+            ) : (
+              <>
+                {/* Mobile View */}
+                <div className="md:hidden p-4">
+                  <div className="space-y-4">
                     <AnimatePresence>
                       {filteredShipments.map((shipment, index) => (
-                        <motion.tr
+                        <motion.div
                           key={shipment.id}
                           variants={itemVariants}
                           initial="hidden"
                           animate="visible"
                           exit="hidden"
-                          transition={{ delay: index * 0.05 }}
-                          className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 backdrop-blur-sm transition-all duration-300 border-l-4 border-transparent hover:border-indigo-300"
+                          transition={{ delay: index * 0.1 }}
+                          className="bg-white p-4 rounded-lg shadow-sm border border-gray-200"
                         >
-                          <td className="p-4 font-medium text-gray-900 text-center">{shipment.shipmentId}</td>
-                          <td className="p-4 text-center">{shipment.customerName}</td>
-                          <td className="p-4 text-center">{shipment.governorate}</td>
-                          <td className="p-4 text-center">{`${shipment.goodsValue || 0} ${shipment.goodsCurrency || ''}`}</td>
-                          <td className="p-4 font-semibold text-center">{formatMultiCurrency(shipment)}</td>
-                          <td className="p-4 text-center">{shipment.date}</td>
-                          <td className="p-4 text-center">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="font-bold text-indigo-600 text-lg">{shipment.shipmentId}</span>
+                            <span className="text-sm text-gray-500">{shipment.date}</span>
+                          </div>
+                          <div className="mb-3">
+                            <p className="font-semibold text-gray-800">{shipment.customerName}</p>
+                            <p className="text-sm text-gray-600 flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              {shipment.governorate}
+                            </p>
+                          </div>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="font-semibold text-gray-700">
+                              {tr('collectibleAmount')}: {formatMultiCurrency(shipment)}
+                            </span>
                             <StatusSelector 
                               currentStatus={shipment.status} 
-                              onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                              onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)} 
                             />
-                          </td>
-                          <td className="p-4 text-center">
-                            <div className="flex items-center gap-2 justify-center">
-                              <AnimatedButton
-                                onClick={() => handlePrintPolicy(shipment)}
-                                variant="outline"
-                                size="sm"
-                                icon={PrinterIcon}
-                                className="hover:bg-blue-50 hover:border-blue-300"
-                              />
-                              <AnimatedButton
-                                onClick={() => handleCopyLink(shipment.shipmentId)}
-                                variant="outline"
-                                size="sm"
-                                icon={LinkIcon}
-                                className="hover:bg-green-50 hover:border-green-300"
-                              />
-                              <AnimatedButton
-                                onClick={() => handleDeleteShipment(shipment.id)}
-                                variant="outline"
-                                size="sm"
-                                icon={TrashIcon}
-                                className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
-                              />
-                            </div>
-                          </td>
-                        </motion.tr>
+                          </div>
+                          <div className="flex items-center justify-end gap-3 border-t pt-3">
+                            <AnimatedButton
+                              onClick={() => handlePrintPolicy(shipment)}
+                              variant="outline"
+                              size="sm"
+                              icon={PrinterIcon}
+                            />
+                            <AnimatedButton
+                              onClick={() => handleCopyLink(shipment.shipmentId)}
+                              variant="outline"
+                              size="sm"
+                              icon={LinkIcon}
+                            />
+                            <AnimatedButton
+                              onClick={() => handleDeleteShipment(shipment.id)}
+                              variant="outline"
+                              size="sm"
+                              icon={TrashIcon}
+                              className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
+                            />
+                          </div>
+                        </motion.div>
                       ))}
                     </AnimatePresence>
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-          
-          {filteredShipments.length === 0 && !isLoading && (
-            <motion.div 
-              className="text-center py-20 bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg m-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">لا توجد شحنات</h3>
-              <p className="text-gray-500 text-lg mb-4">قم بإضافة شحنة جديدة لبدء العمل</p>
-              <AnimatedButton
-                onClick={() => navigate('/add-shipment')}
-                variant="primary"
-                icon={PlusCircleIcon}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                  </div>
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                        <th className="p-4 font-semibold text-left">{tr('shipmentNumber')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('customer')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('governorate')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('goodsValue')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('collectibleAmount')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('date')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('status')}</th>
+                        <th className="p-4 font-semibold text-left">{tr('actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      <AnimatePresence>
+                        {filteredShipments.map((shipment, index) => (
+                          <motion.tr
+                            key={shipment.id}
+                            variants={itemVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="hidden"
+                            transition={{ delay: index * 0.05 }}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="p-4 font-medium text-gray-900">{shipment.shipmentId}</td>
+                            <td className="p-4">{shipment.customerName}</td>
+                            <td className="p-4">{shipment.governorate}</td>
+                            <td className="p-4">{`${shipment.goodsValue || 0} ${shipment.goodsCurrency || ''}`}</td>
+                            <td className="p-4 font-semibold">{formatMultiCurrency(shipment)}</td>
+                            <td className="p-4">{shipment.date}</td>
+                            <td className="p-4">
+                              <StatusSelector 
+                                currentStatus={shipment.status} 
+                                onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                              />
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <AnimatedButton
+                                  onClick={() => handlePrintPolicy(shipment)}
+                                  variant="outline"
+                                  size="sm"
+                                  icon={PrinterIcon}
+                                  className="hover:bg-blue-50 hover:border-blue-300"
+                                />
+                                <AnimatedButton
+                                  onClick={() => handleCopyLink(shipment.shipmentId)}
+                                  variant="outline"
+                                  size="sm"
+                                  icon={LinkIcon}
+                                  className="hover:bg-green-50 hover:border-green-300"
+                                />
+                                <AnimatedButton
+                                  onClick={() => handleDeleteShipment(shipment.id)}
+                                  variant="outline"
+                                  size="sm"
+                                  icon={TrashIcon}
+                                  className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
+                                />
+                              </div>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </AnimatePresence>
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            
+            {filteredShipments.length === 0 && !isLoading && (
+              <motion.div 
+                className="text-center py-20 bg-gray-50 rounded-lg m-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
               >
-                إضافة شحنة جديدة
-              </AnimatedButton>
-            </motion.div>
-          )}
-        </AnimatedCard>
-
-        {/* Routes Manager - Removed - using dedicated pages instead */}
-      </motion.div>
-
-      {isModalOpen && <AddShipmentModal closeModal={() => setIsModalOpen(false)} />}
+                <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">{tr('noShipments')}</h3>
+                <p className="text-gray-500 text-lg mb-4">{tr('addNewShipment')}</p>
+                <AnimatedButton
+                  onClick={() => navigate('/add-shipment')}
+                  variant="primary"
+                  icon={PlusCircleIcon}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {tr('addNewShipmentButton')}
+                </AnimatedButton>
+              </motion.div>
+            )}
+          </AnimatedCard>
+        </div>
       </div>
+      {isModalOpen && <AddShipmentModal closeModal={() => setIsModalOpen(false)} />}
     </div>
   );
 }

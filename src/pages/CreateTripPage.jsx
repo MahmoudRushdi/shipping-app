@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -12,6 +13,7 @@ import DriverSelector from '../components/DriverSelector';
 
 export default function CreateTripPage() {
     const navigate = useNavigate();
+    const { language, tr } = useLanguage();
     const [vehicles, setVehicles] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,27 +105,27 @@ export default function CreateTripPage() {
         e.preventDefault();
         
         if (!formData.tripName) {
-            alert('يرجى إدخال اسم الرحلة.');
+            alert(tr('pleaseEnterTripName'));
             return;
         }
 
         if (!formData.selectedVehicle) {
-            alert('يرجى اختيار سيارة للرحلة.');
+            alert(tr('pleaseSelectVehicle'));
             return;
         }
 
         if (!formData.destination) {
-            alert('يرجى تحديد وجهة الرحلة.');
+            alert(tr('pleaseEnterDestination'));
             return;
         }
 
         if (!formData.ownerName) {
-            alert('يرجى تحديد اسم صاحب السيارة.');
+            alert(tr('pleaseEnterOwnerName'));
             return;
         }
 
         if (stations.length === 0) {
-            alert('يرجى إضافة محطة واحدة على الأقل.');
+            alert(tr('pleaseAddStation'));
             return;
         }
 
@@ -131,7 +133,7 @@ export default function CreateTripPage() {
         for (let i = 0; i < stations.length; i++) {
             const station = stations[i];
             if (!station.stationName || !station.driverId || station.commissionPercentage <= 0) {
-                alert(`يرجى إكمال جميع البيانات المطلوبة للمحطة ${i + 1}.`);
+                alert(`${tr('pleaseCompleteStationData')} ${i + 1}.`);
                 return;
             }
         }
@@ -142,19 +144,17 @@ export default function CreateTripPage() {
             const selectedVehicle = vehicles.find(v => v.id === formData.selectedVehicle);
             
             await addDoc(collection(db, 'trips'), {
-                tripName: formData.tripName || `رحلة ${selectedVehicle?.vehicleNumber || 'جديدة'}`,
+                tripName: formData.tripName || `${tr('trip')} ${selectedVehicle?.vehicleNumber || tr('new')}`,
                 vehicleId: formData.selectedVehicle,
                 vehicleNumber: selectedVehicle?.vehicleNumber || '',
                 destination: formData.destination,
-                ownerName: formData.ownerName, // صاحب السيارة
+                ownerName: formData.ownerName,
                 departureDate: formData.departureDate,
                 departureTime: formData.departureTime,
                 notes: formData.notes,
                 status: formData.status,
-                stations: stations, // المحطات والمناديب
-                // تم إزالة: totalShippingAmount و totalShippingCurrency
-                // سيتم حسابها تلقائياً من الشحنات المعينة للرحلة
-                shipmentIds: [], // Empty array - shipments will be assigned later
+                stations: stations,
+                shipmentIds: [],
                 createdAt: serverTimestamp(),
                 expenses: {
                     vehicleRental: 0,
@@ -163,12 +163,12 @@ export default function CreateTripPage() {
                 }
             });
 
-            alert('تم إنشاء الرحلة بنجاح! يمكنك الآن تخصيص الشحنات لهذه الرحلة.');
+            alert(tr('tripCreatedSuccess'));
             navigate('/trips');
 
         } catch (error) {
             console.error('Error creating trip:', error);
-            alert('حدث خطأ أثناء إنشاء الرحلة.');
+            alert(tr('errorCreatingTrip'));
         }
 
         setIsSubmitting(false);
@@ -188,7 +188,7 @@ export default function CreateTripPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-4xl mx-auto"
                 variants={containerVariants}
@@ -205,9 +205,9 @@ export default function CreateTripPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة لإدارة الرحلات
+                                {tr('backToTripsManagement')}
                             </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إنشاء رحلة جديدة</h1>
+                            <h1 className="text-3xl font-bold gradient-text">{tr('Create New Trip')}</h1>
                         </div>
                     </div>
                 </motion.div>
@@ -219,32 +219,32 @@ export default function CreateTripPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل السيارات..."
+                                text={tr('Loading vehicles...')}
                             />
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
                                                          {/* معلومات مهمة */}
-                             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                                 <h4 className="font-medium text-green-800 mb-2">✅ معلومات مهمة:</h4>
-                                 <ul className="text-sm text-green-700 space-y-1">
-                                     <li>• <strong>مبلغ النقل الإجمالي</strong> سيتم حسابه تلقائياً من الشحنات المعينة للرحلة</li>
-                                     <li>• <strong>العمولة</strong> ستُحسب بناءً على المبلغ الفعلي المحصل</li>
-                                     <li>• <strong>نسب العمولات</strong> يمكن تعديلها لاحقاً في صفحة تفاصيل الرحلة بعد معرفة المبلغ الفعلي</li>
-                                 </ul>
-                             </div>
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <h4 className="font-medium text-green-800 mb-2">✅ {tr('importantInformation')}</h4>
+                                <ul className="text-sm text-green-700 space-y-1">
+                                    <li>• <strong>{tr('totalShippingAmount')}</strong> {tr('willBeCalculatedAutomatically')}</li>
+                                    <li>• <strong>{tr('commission')}</strong> {tr('willBeCalculatedBasedOnActual')}</li>
+                                    <li>• <strong>{tr('commissionRates')}</strong> {tr('canBeAdjustedLater')}</li>
+                                </ul>
+                            </div>
                             
                             {/* Trip Name */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    اسم الرحلة <span className="text-red-500">*</span>
+                                    {tr('Trip Name')} <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="tripName"
                                     value={formData.tripName}
                                     onChange={handleInputChange}
-                                    placeholder="مثال: رحلة دمشق - إدلب، رحلة حلب الصباحية"
+                                    placeholder={tr('tripNamePlaceholder')}
                                     required
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
@@ -253,7 +253,7 @@ export default function CreateTripPage() {
                             {/* Vehicle Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    اختيار السيارة <span className="text-red-500">*</span>
+                                    {tr('Select Vehicle')} <span className="text-red-500">*</span>
                                 </label>
                                 <select
                                     name="selectedVehicle"
@@ -262,10 +262,10 @@ export default function CreateTripPage() {
                                     required
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="">اختر سيارة...</option>
+                                    <option value="">{tr('Choose a vehicle...')}</option>
                                     {vehicles.filter(v => v.status === 'active').map(vehicle => (
                                         <option key={vehicle.id} value={vehicle.id}>
-                                            {vehicle.vehicleNumber} - {vehicle.vehicleType || 'غير محدد'}
+                                            {vehicle.vehicleNumber} - {vehicle.vehicleType || tr('Not specified')}
                                         </option>
                                     ))}
                                 </select>
@@ -274,14 +274,14 @@ export default function CreateTripPage() {
                             {/* Destination */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    وجهة الرحلة <span className="text-red-500">*</span>
+                                    {tr('Trip Destination')} <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="destination"
                                     value={formData.destination}
                                     onChange={handleInputChange}
-                                    placeholder="مثال: دمشق، حلب، حمص"
+                                    placeholder={tr('destinationPlaceholder')}
                                     required
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
@@ -290,14 +290,14 @@ export default function CreateTripPage() {
                             {/* Owner Name */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    اسم صاحب السيارة <span className="text-red-500">*</span>
+                                    {tr('Owner Name')} <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="ownerName"
                                     value={formData.ownerName}
                                     onChange={handleInputChange}
-                                    placeholder="اسم صاحب السيارة"
+                                    placeholder={tr('Owner Name')}
                                     required
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
@@ -307,7 +307,7 @@ export default function CreateTripPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        تاريخ المغادرة
+                                        {tr('Departure Date')}
                                     </label>
                                     <input
                                         type="date"
@@ -319,7 +319,7 @@ export default function CreateTripPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        وقت المغادرة
+                                        {tr('Departure Time')}
                                     </label>
                                     <input
                                         type="time"
@@ -334,16 +334,16 @@ export default function CreateTripPage() {
                                                          {/* تم إزالة قسم مبلغ النقل الإجمالي */}
                              {/* سيتم حساب المبلغ تلقائياً من الشحنات المعينة للرحلة */}
                              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                 <h4 className="font-medium text-blue-800 mb-2">💡 ملاحظة مهمة:</h4>
+                                 <h4 className="font-medium text-blue-800 mb-2">💡 {tr('importantNote')}</h4>
                                  <p className="text-sm text-blue-700">
-                                     <strong>مبلغ النقل الإجمالي</strong> سيتم حسابه تلقائياً من الشحنات التي ستقوم بتعيينها للرحلة لاحقاً.
+                                     <strong>{tr('totalShippingAmount')}</strong> {tr('totalAmountNote')}
                                  </p>
                              </div>
 
                             {/* Stations Section */}
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-800">المحطات والمناديب</h3>
+                                    <h3 className="text-lg font-semibold text-gray-800">{tr('Stations and Drivers')}</h3>
                                     <AnimatedButton
                                         type="button"
                                         onClick={addStation}
@@ -351,25 +351,25 @@ export default function CreateTripPage() {
                                         icon={Plus}
                                         size="sm"
                                     >
-                                        إضافة محطة
+                                        {tr('Add Station')}
                                     </AnimatedButton>
                                 </div>
                                 
                                 {/* Helpful explanation */}
                                 <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <h4 className="font-medium text-blue-800 mb-2">💡 كيف تعمل المحطات:</h4>
+                                    <h4 className="font-medium text-blue-800 mb-2">💡 {tr('howStationsWork')}</h4>
                                     <ul className="text-sm text-blue-700 space-y-1">
-                                        <li>• <strong>اسم المحطة:</strong> المدينة التي سيتم تسليم الشحنات فيها</li>
-                                        <li>• <strong>ترتيب المحطات:</strong> اكتب المحطات بالترتيب من البداية للنهاية</li>
-                                        <li>• <strong>مثال:</strong> إدلب → حلب → اللاذقية → دمشق</li>
-                                        <li>• يجب إدخال معلومات المندوب ونسبة العمولة لكل محطة بشكل منفصل</li>
+                                        <li>• <strong>{tr('stationName')}:</strong> {tr('theCityWhereShipments')}</li>
+                                        <li>• <strong>{tr('stationOrder')}:</strong> {tr('writeStationsInOrder')}</li>
+                                        <li>• <strong>{tr('example')}:</strong> {tr('aleppoHomsLattakiaDamascus')}</li>
+                                        <li>• {tr('youMustEnterDriver')}</li>
                                     </ul>
                                 </div>
                                 
                                 {stations.length === 0 && (
                                     <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                                         <Route className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                        <p>لا توجد محطات. قم بإضافة محطة واحدة على الأقل.</p>
+                                        <p>{tr('noStationsAdded')}</p>
                                     </div>
                                 )}
 
@@ -377,12 +377,12 @@ export default function CreateTripPage() {
                                     {stations.map((station, index) => (
                                         <div key={station.id} className="relative">
                                             <div className="flex items-center justify-between mb-2">
-                                                <h4 className="font-medium text-gray-700">المحطة {index + 1}</h4>
+                                                <h4 className="font-medium text-gray-700">{tr('Station')} {index + 1}</h4>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeStation(station.id)}
                                                     className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="حذف المحطة"
+                                                    title={tr('Delete Station')}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -407,14 +407,14 @@ export default function CreateTripPage() {
                             {/* Notes */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    ملاحظات إضافية
+                                    {tr('Additional Notes')}
                                 </label>
                                 <textarea
                                     name="notes"
                                     value={formData.notes}
                                     onChange={handleInputChange}
                                     rows="3"
-                                    placeholder="أي ملاحظات إضافية حول الرحلة..."
+                                    placeholder={tr('Any additional notes about the trip...')}
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 />
                             </div>
@@ -422,7 +422,7 @@ export default function CreateTripPage() {
                             {/* Status */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    حالة الرحلة
+                                    {tr('Trip Status')}
                                 </label>
                                 <select
                                     name="status"
@@ -430,9 +430,9 @@ export default function CreateTripPage() {
                                     onChange={handleInputChange}
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="قيد الانتظار">قيد الانتظار</option>
-                                    <option value="قيد النقل">قيد النقل</option>
-                                    <option value="تم التسليم">تم التسليم</option>
+                                    <option value="قيد الانتظار">{tr('waiting')}</option>
+                                    <option value="قيد النقل">{tr('inTransit')}</option>
+                                    <option value="تم التسليم">{tr('delivered')}</option>
                                 </select>
                             </div>
 
@@ -443,7 +443,7 @@ export default function CreateTripPage() {
                                     onClick={() => navigate('/trips')}
                                     variant="outline"
                                 >
-                                    إلغاء
+                                    {tr('Cancel')}
                                 </AnimatedButton>
                                 <AnimatedButton
                                     type="submit"
@@ -451,7 +451,7 @@ export default function CreateTripPage() {
                                     disabled={isSubmitting}
                                     icon={PlusCircleIcon}
                                 >
-                                    {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء الرحلة'}
+                                    {isSubmitting ? tr('Creating...') : tr('Create Trip')}
                                 </AnimatedButton>
                             </div>
                         </form>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, where, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import logo from '../assets/AL-MOSTAKEM-1.png';
+import { useLanguage } from '../hooks/useLanguage.jsx';
+
 import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -24,10 +25,10 @@ const formatMultiCurrency = (shipment) => {
             totals[currency] = (totals[currency] || 0) + shippingVal;
         }
     }
-    const hwalaVal = parseFloat(shipment.hwalaFee) || 0;
-    if (hwalaVal > 0) {
-        const currency = shipment.hwalaFeeCurrency || 'USD';
-        totals[currency] = (totals[currency] || 0) + hwalaVal;
+    const transferVal = parseFloat(shipment.transferFee) || 0;
+    if (transferVal > 0) {
+        const currency = shipment.transferFeeCurrency || 'USD';
+        totals[currency] = (totals[currency] || 0) + transferVal;
     }
     const totalStrings = Object.entries(totals).map(([currency, amount]) => {
         return `${amount.toLocaleString()} ${currency}`;
@@ -37,6 +38,7 @@ const formatMultiCurrency = (shipment) => {
 
 export default function ManifestPage() {
   const navigate = useNavigate();
+  const { language, tr } = useLanguage();
   const [trips, setTrips] = useState([]);
   const [allShipments, setAllShipments] = useState([]);
   const [selectedShipments, setSelectedShipments] = useState([]);
@@ -91,11 +93,11 @@ export default function ManifestPage() {
 
   const handleAssignShipments = async () => {
     if (selectedShipments.length === 0) {
-        alert("يرجى تحديد شحنة واحدة على الأقل.");
+        alert(tr('pleaseSelectShipment'));
         return;
     }
     if (!selectedTrip) {
-        alert("يرجى اختيار رحلة.");
+        alert(tr('pleaseChooseTrip'));
         return;
     }
 
@@ -125,14 +127,14 @@ export default function ManifestPage() {
 
         await Promise.all(updatePromises);
 
-        alert(`تم تخصيص الشحنات للرحلة بنجاح!\n\nالرحلة: ${selectedTripData.tripName || selectedTripData.vehicleNumber}\nعدد الشحنات المضافة: ${selectedShipments.length}\n\nتم تحديث حالة الشحنات إلى "قيد النقل"`);
+        alert(`${tr('shipmentsAssignedSuccess')}\n\n${tr('trip')}: ${selectedTripData.tripName || selectedTripData.vehicleNumber}\n${tr('addedShipments')}: ${selectedShipments.length}\n\n${tr('statusUpdatedToInTransit')}`);
         
         setSelectedShipments([]);
         setSelectedTrip('');
 
     } catch (error) {
         console.error("Error assigning shipments: ", error);
-        alert("حدث خطأ أثناء تخصيص الشحنات.");
+        alert(tr('errorAssigningShipments'));
     }
 
     setIsSubmitting(false);
@@ -169,7 +171,7 @@ export default function ManifestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <motion.div 
         className="max-w-7xl mx-auto"
         variants={containerVariants}
@@ -180,8 +182,10 @@ export default function ManifestPage() {
         <motion.div className="mb-8" variants={itemVariants}>
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
-              <img src={logo} alt="شعار الشركة" className="h-20 w-auto" />
-              <h1 className="text-3xl font-bold text-gray-800">تخصيص الشحنات للرحلات</h1>
+              {/* Logo temporarily hidden
+    
+            */}
+              <h1 className="text-3xl font-bold text-gray-800">{tr('manifestTitle')}</h1>
             </div>
             <div className="flex items-center gap-4">
               <AnimatedButton
@@ -189,10 +193,10 @@ export default function ManifestPage() {
                 variant="primary"
                 icon={PlusCircleIcon}
               >
-                إنشاء رحلة جديدة
+                {tr('createNewTrip')}
               </AnimatedButton>
               <a href="/dashboard" className="text-sm text-indigo-600 hover:underline">
-                → العودة إلى لوحة التحكم الرئيسية
+                {tr('backToMainDashboard')}
               </a>
             </div>
           </div>
@@ -202,7 +206,7 @@ export default function ManifestPage() {
           <div className="p-6">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-gray-50 p-4 rounded-lg">
               <h2 className="text-xl font-semibold">
-                تحديد الشحنات ({selectedShipments.length} شحنة محددة)
+                {tr('selectShipments')} ({selectedShipments.length} {tr('selectedShipments')})
               </h2>
               <div className="flex items-center gap-2">
                 <select
@@ -210,10 +214,10 @@ export default function ManifestPage() {
                   onChange={(e) => setSelectedTrip(e.target.value)}
                   className="p-2 border rounded-md bg-white w-64"
                 >
-                  <option value="">اختر رحلة...</option>
+                  <option value="">{tr('chooseTrip')}</option>
                   {trips.filter(t => t.status !== 'تم التسليم').map(trip => (
                     <option key={trip.id} value={trip.id}>
-                      {trip.tripName || trip.vehicleNumber} - {trip.destination || 'غير محدد'}
+                      {trip.tripName || trip.vehicleNumber} - {trip.destination || tr('notSpecified')}
                     </option>
                   ))}
                 </select>
@@ -222,7 +226,7 @@ export default function ManifestPage() {
                   disabled={isSubmitting || selectedShipments.length === 0 || !selectedTrip}
                   variant="primary"
                 >
-                  {isSubmitting ? 'جاري التخصيص...' : 'تخصيص الشحنات'}
+                  {isSubmitting ? tr('assigning') : tr('assignShipments')}
                 </AnimatedButton>
               </div>
             </div>
@@ -232,7 +236,7 @@ export default function ManifestPage() {
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="ابحث برقم الشحنة، اسم العميل، أو المحافظة..."
+                  placeholder={tr('searchShipmentsPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full p-2 border rounded-md"
@@ -244,17 +248,17 @@ export default function ManifestPage() {
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="p-2 border rounded-md"
                 >
-                  <option value="all">جميع الشحنات</option>
-                  <option value="pending">معلق</option>
-                  <option value="in-transit">قيد النقل</option>
-                  <option value="delivered">تم التسليم</option>
+                  <option value="all">{tr('allShipments')}</option>
+                  <option value="pending">{tr('pending')}</option>
+                  <option value="in-transit">{tr('inTransit')}</option>
+                  <option value="delivered">{tr('delivered')}</option>
                 </select>
                 <AnimatedButton
                   onClick={handleSelectAll}
                   variant="outline"
                   size="sm"
                 >
-                  {selectedShipments.length === filteredShipments.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                  {selectedShipments.length === filteredShipments.length ? tr('deselectAll') : tr('selectAll')}
                 </AnimatedButton>
               </div>
             </div>
@@ -265,7 +269,7 @@ export default function ManifestPage() {
                   type="ring" 
                   size="xl" 
                   color="indigo" 
-                  text="جاري تحميل البيانات..."
+                  text={tr('loadingData')}
                 />
               </div>
             ) : (
@@ -273,13 +277,13 @@ export default function ManifestPage() {
                 <table className="w-full text-sm text-right">
                   <thead className="bg-gray-100">
                     <tr>
-                      <th className="p-3 w-12">تحديد</th>
-                      <th className="p-3">رقم الشحنة</th>
-                      <th className="p-3">العميل</th>
-                      <th className="p-3">المحافظة</th>
-                      <th className="p-3">الحالة</th>
-                      <th className="p-3">الرحلة المخصصة</th>
-                      <th className="p-3">المبلغ المحصل</th>
+                      <th className="p-3 w-12">{tr('select')}</th>
+                      <th className="p-3">{tr('shipmentNumber')}</th>
+                      <th className="p-3">{tr('customer')}</th>
+                      <th className="p-3">{tr('governorate')}</th>
+                      <th className="p-3">{tr('status')}</th>
+                      <th className="p-3">{tr('assignedTrip')}</th>
+                      <th className="p-3">{tr('collectibleAmount')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -303,9 +307,9 @@ export default function ManifestPage() {
                             shipment.status === 'delivered' ? 'bg-green-100 text-green-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {shipment.status === 'pending' ? 'معلق' :
-                             shipment.status === 'in-transit' ? 'قيد النقل' :
-                             shipment.status === 'delivered' ? 'تم التسليم' : shipment.status}
+                            {shipment.status === 'pending' ? tr('pending') :
+                             shipment.status === 'in-transit' ? tr('inTransit') :
+                             shipment.status === 'delivered' ? tr('delivered') : shipment.status}
                           </span>
                         </td>
                         <td className="p-3">
@@ -314,7 +318,7 @@ export default function ManifestPage() {
                               {trips.find(t => t.id === shipment.assignedTrip)?.tripName || shipment.assignedTrip}
                             </span>
                           ) : (
-                            <span className="text-gray-400">غير مخصص</span>
+                            <span className="text-gray-400">{tr('notAssigned')}</span>
                           )}
                         </td>
                         <td className="p-3 font-semibold">{formatMultiCurrency(shipment)}</td>
@@ -333,7 +337,7 @@ export default function ManifestPage() {
                 transition={{ delay: 0.5 }}
               >
                 <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">لا توجد شحنات غير مخصصة.</p>
+                <p className="text-gray-500 text-lg">{tr('noUnassignedShipments')}</p>
               </motion.div>
             )}
           </div>

@@ -66,7 +66,7 @@ export default function DispatchIncomingItemModal({ closeModal, onDispatchComple
             const currentEntryData = entrySnap.data();
             let updatedItems = [...currentEntryData.items];
 
-            const itemIndex = updatedItems.findIndex(i => i.id === item.id);
+            let itemIndex = updatedItems.findIndex(i => i.id === item.id);
             if (itemIndex === -1) {
                 const fallbackIndex = updatedItems.findIndex(i => i.orderIndex === item.orderIndex && i.itemDescription === item.itemDescription);
                 if (fallbackIndex !== -1) {
@@ -224,7 +224,7 @@ export default function DispatchIncomingItemModal({ closeModal, onDispatchComple
                                     value={destinationGovernorate}
                                     onChange={(e) => setDestinationGovernorate(e.target.value)}
                                     className="p-2 border rounded-md w-full"
-                                    placeholder="مثال: حلب"
+                                    placeholder="مثال: نيقوسيا"
                                     required
                                 />
                             </div>
@@ -241,7 +241,7 @@ export default function DispatchIncomingItemModal({ closeModal, onDispatchComple
                                 value={targetBranchName}
                                 onChange={(e) => setTargetBranchName(e.target.value)}
                                 className="p-2 border rounded-md w-full"
-                                placeholder="مثال: فرع حلب"
+                                placeholder="مثال: فرع نيقوسيا"
                                 required
                             />
                         </div>

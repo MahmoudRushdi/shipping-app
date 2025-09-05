@@ -6,8 +6,10 @@ import { PlusCircleIcon, SearchIcon, TrashIcon } from '../components/Icons';
 import AddBranchEntryModal from '../components/AddBranchEntryModal';
 import LinkBolToVehicleModal from '../components/LinkBolToVehicleModal';
 import { Link } from 'react-router-dom'; // For navigation
+import { useLanguage } from '../hooks/useLanguage.jsx';
 
 export default function BranchEntriesPage() {
+    const { language, tr } = useLanguage();
     const [entries, setEntries] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -52,11 +54,11 @@ export default function BranchEntriesPage() {
 
             setEntries(entriesList);
             setIsLoading(false);
-        }, (err) => {
-            console.error("Error fetching branch entries:", err);
-            setError("فشل تحميل البوليصات.");
-            setIsLoading(false);
-        });
+                    }, (err) => {
+                console.error("Error fetching branch entries:", err);
+                setError(tr('failedToLoadEntries'));
+                setIsLoading(false);
+            });
 
                  return () => unsubscribe(); // Cleanup listener on unmount
      }, [filterType, filterBranchName]); // Re-run effect when filters change
@@ -69,16 +71,16 @@ export default function BranchEntriesPage() {
 
     // Handle deleting an entry
     const handleDeleteEntry = async (entryIdToDelete) => {
-        if (!window.confirm("هل أنت متأكد من أنك تريد حذف هذه البوليصة بالكامل؟ هذا الإجراء لا يمكن التراجع عنه.")) {
+        if (!window.confirm(tr("confirmDeleteEntry"))) {
             return;
         }
         try {
             await deleteDoc(doc(db, 'branch_entries', entryIdToDelete));
-            setSuccessMessage('تم حذف البوليصة بنجاح.');
+            setSuccessMessage(tr('entryDeletedSuccess'));
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (err) {
             console.error("Error deleting entry:", err);
-            setError("حدث خطأ أثناء حذف البوليصة.");
+            setError(tr('errorDeletingEntry'));
         }
     };
 
@@ -97,12 +99,12 @@ export default function BranchEntriesPage() {
     };
 
     return (
-        <div className="bg-gray-50 min-h-screen p-8 font-sans" dir="rtl">
+        <div className="bg-gray-50 min-h-screen p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800">إدارة البوليصات (وارد/صادر)</h1>
-                        <p className="text-gray-500">عرض وإدارة البوليصات الواردة والصادرة من/إلى الفروع الأخرى.</p>
+                        <h1 className="text-3xl font-bold text-gray-800">{tr('branchEntriesManagement')}</h1>
+                        <p className="text-gray-500">{tr('branchEntriesDescription')}</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <button
@@ -110,10 +112,10 @@ export default function BranchEntriesPage() {
                             className="flex items-center gap-2 bg-indigo-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200"
                         >
                             <PlusCircleIcon />
-                            <span>إضافة بوليصة جديدة</span>
+                            <span>{tr('addNewEntry')}</span>
                         </button>
                         <Link to="/dashboard" className="text-sm text-indigo-600 hover:underline">
-                            → العودة إلى لوحة التحكم الرئيسية
+                            {tr('backToMainDashboard')}
                         </Link>
                     </div>
                 </div>
@@ -124,42 +126,42 @@ export default function BranchEntriesPage() {
                 {/* NEW: Sub-navigation for different entry views */}
                 <div className="flex flex-wrap justify-center gap-4 mb-6">
                     <Link to="/branch-entries" className="px-4 py-2 rounded-lg bg-indigo-100 text-indigo-800 font-semibold hover:bg-indigo-200">
-                        كل الإدخالات
+                        {tr('allEntries')}
                     </Link>
                     <Link to="/branch-entries/pending-dispatch" className="px-4 py-2 rounded-lg bg-yellow-100 text-yellow-800 font-semibold hover:bg-yellow-200">
-                        بانتظار الإخراج
+                        {tr('pendingDispatch')}
                     </Link>
                     <Link to="/branch-entries/fully-dispatched" className="px-4 py-2 rounded-lg bg-green-100 text-green-800 font-semibold hover:bg-green-200">
-                        مخرجة بالكامل
+                        {tr('fullyDispatched')}
                     </Link>
                 </div>
 
                 {/* Filtering Section */}
                 <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">خيارات التصفية</h2>
+                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">{tr('filteringOptions')}</h2>
                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="filterType" className="block text-sm font-medium text-gray-700 mb-1">نوع الإدخال</label>
+                            <label htmlFor="filterType" className="block text-sm font-medium text-gray-700 mb-1">{tr('entryType')}</label>
                             <select
                                 id="filterType"
                                 value={filterType}
                                 onChange={(e) => setFilterType(e.target.value)}
                                 className="p-2 border rounded-md w-full bg-white"
                             >
-                                <option value="">الكل</option>
-                                <option value="incoming">وارد</option>
-                                <option value="outgoing">صادر</option>
+                                <option value="">{tr('all')}</option>
+                                <option value="incoming">{tr('incoming')}</option>
+                                <option value="outgoing">{tr('outgoing')}</option>
                             </select>
                         </div>
                         
                         <div className="relative">
-                            <label htmlFor="filterBranchName" className="block text-sm font-medium text-gray-700 mb-1">اسم الفرع</label>
+                            <label htmlFor="filterBranchName" className="block text-sm font-medium text-gray-700 mb-1">{tr('branchName')}</label>
                             <input
                                 id="filterBranchName"
                                 type="text"
                                 value={filterBranchName}
                                 onChange={(e) => setFilterBranchName(e.target.value)}
-                                placeholder="ابحث باسم الفرع..."
+                                placeholder={tr('searchByBranchName')}
                                 className="p-2 border rounded-md w-full pr-10"
                             />
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pt-6"><SearchIcon className="h-5 w-5 text-gray-400" /></span>
@@ -169,24 +171,24 @@ export default function BranchEntriesPage() {
 
                 <div className="bg-white rounded-lg shadow-md">
                     <div className="p-4 border-b">
-                        <h2 className="text-xl font-semibold">قائمة البوليصات</h2>
+                        <h2 className="text-xl font-semibold">{tr('entriesList')}</h2>
                     </div>
                     <div className="overflow-x-auto">
                         {isLoading ? (
-                            <p className="text-center text-gray-500 p-10">جاري تحميل البوليصات...</p>
+                            <p className="text-center text-gray-500 p-10">{tr('loadingEntries')}</p>
                         ) : entries.length === 0 ? (
-                            <p className="text-center text-gray-500 p-10">لم يتم إنشاء أي بوليصات بعد أو لا توجد نتائج مطابقة للتصفية.</p>
+                            <p className="text-center text-gray-500 p-10">{tr('noEntriesCreated')}</p>
                         ) : (
                             <table className="w-full text-sm text-right">
                                 <thead className="bg-gray-100 text-gray-700 uppercase">
                                                                          <tr>
-                                         <th className="p-3">النوع</th>
-                                         <th className="p-3">اسم الفرع</th>
-                                         <th className="p-3">رقم المشعار</th>
-                                         <th className="p-3">عدد البنود</th>
-                                         <th className="p-3">الحالة</th>
-                                         <th className="p-3">تاريخ الإنشاء</th>
-                                         <th className="p-3">إجراءات</th>
+                                         <th className="p-3">{tr('type')}</th>
+                                         <th className="p-3">{tr('branchName')}</th>
+                                         <th className="p-3">{tr('bolNumber')}</th>
+                                         <th className="p-3">{tr('numberOfItems')}</th>
+                                         <th className="p-3">{tr('status')}</th>
+                                         <th className="p-3">{tr('creationDate')}</th>
+                                         <th className="p-3">{tr('actions')}</th>
                                      </tr>
                                 </thead>
                                 <tbody>
@@ -194,17 +196,17 @@ export default function BranchEntriesPage() {
                                         <tr key={entry.id} className="border-b hover:bg-gray-50">
                                             <td className="p-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-semibold ${entry.entryType === 'incoming' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
-                                                    {entry.entryType === 'incoming' ? 'وارد' : 'صادر'}
+                                                    {entry.entryType === 'incoming' ? tr('incoming') : tr('outgoing')}
                                                 </span>
                                             </td>
                                                                                          <td className="p-3 font-medium">{entry.branchName}</td>
-                                             <td className="p-3 font-medium">{entry.bolNumber || 'غير محدد'}</td>
+                                             <td className="p-3 font-medium">{entry.bolNumber || tr('notSpecified')}</td>
                                              <td className="p-3">{entry.items?.length || 0}</td>
                                              <td className="p-3">
                                                  <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
                                                      entry.vehicleId ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                                                  }`}>
-                                                     {entry.vehicleId ? 'مربوطة بمركبة' : 'غير مربوطة'}
+                                                     {entry.vehicleId ? tr('linkedToVehicle') : tr('notLinked')}
                                                  </span>
                                              </td>
                                              <td className="p-3">{entry.date}</td>
@@ -214,21 +216,21 @@ export default function BranchEntriesPage() {
                                                         to={`/branch-entries/${entry.id}`}
                                                         className="text-indigo-600 hover:text-indigo-900 font-semibold"
                                                     >
-                                                        عرض التفاصيل
+                                                        {tr('viewDetails')}
                                                     </Link>
                                                     {!entry.vehicleId && (
                                                         <button
                                                             onClick={() => handleLinkToVehicle(entry)}
                                                             className="text-green-600 hover:text-green-900 font-semibold"
                                                         >
-                                                            ربط بمركبة
+                                                            {tr('linkToVehicle')}
                                                         </button>
                                                     )}
                                                     <button
                                                         onClick={() => handleDeleteEntry(entry.id)}
                                                         className="text-red-600 hover:text-red-900 font-semibold"
                                                     >
-                                                        <TrashIcon className="inline-block ml-1" /> حذف
+                                                        <TrashIcon className="inline-block ml-1" /> {tr('delete')}
                                                     </button>
                                                 </div>
                                             </td>

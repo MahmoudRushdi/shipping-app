@@ -8,6 +8,7 @@ import { PrinterIcon, DownloadIcon } from '../components/Icons';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import StatusSelector from '../components/StatusSelector'; // NEW: Import StatusSelector
 import TripPrintReceipt from '../components/TripPrintReceipt';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 
 const getCollectibleAmount = (shipment) => {
     const totals = {};
@@ -34,6 +35,7 @@ const getCollectibleAmount = (shipment) => {
 
 export default function TripDetailsPage() {
     const { tripId } = useParams();
+    const { language, tr } = useLanguage();
     const [trip, setTrip] = useState(null);
     const [shipments, setShipments] = useState([]); // Regular shipments assigned to this trip
     const [dispatchedBranchItems, setDispatchedBranchItems] = useState([]); // Items dispatched from branch entries
@@ -377,7 +379,8 @@ export default function TripDetailsPage() {
         if (!trip) return;
 
         const workbook = new ExcelJS.Workbook();
-        workbook.rtl = true;
+        // Set RTL based on language
+        workbook.rtl = language === 'ar';
         
         // Enhanced styles for professional look
         const headerStyle = { 
@@ -407,16 +410,16 @@ export default function TripDetailsPage() {
             border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
         };
 
-        // Sheet 1: Trip Overview - معلومات عامة عن الرحلة
-        const overviewSheet = workbook.addWorksheet('معلومات عامة');
+        // Sheet 1: Trip Overview
+        const overviewSheet = workbook.addWorksheet(tr('tripOverview'));
         overviewSheet.columns = [
-            { header: 'المعلومات', key: 'info', width: 25 },
-            { header: 'التفاصيل', key: 'details', width: 40 }
+            { header: tr('information'), key: 'info', width: 25 },
+            { header: tr('details'), key: 'details', width: 40 }
         ];
 
         // Add main header
         overviewSheet.mergeCells('A1:B1');
-        overviewSheet.getCell('A1').value = `تقرير تفاصيل الرحلة - ${trip.tripName || trip.id}`;
+        overviewSheet.getCell('A1').value = `${tr('tripDetailsReport')} - ${trip.tripName || trip.id}`;
         overviewSheet.getCell('A1').style = { 
             font: { bold: true, size: 16, color: { argb: 'FF000000' } }, 
             alignment: { horizontal: 'center', vertical: 'middle' },
@@ -427,39 +430,39 @@ export default function TripDetailsPage() {
 
         // Add trip basic information
         const tripInfo = [
-            ['رقم الرحلة', trip.id],
-            ['اسم الرحلة', trip.tripName || 'غير محدد'],
-            ['المركبة', trip.carName || 'غير محدد'],
-            ['رقم المركبة', trip.vehicleNumber || 'غير محدد'],
-            ['الوجهة', trip.destination || 'غير محدد'],
-            ['حالة الرحلة', trip.status || 'غير محدد'],
-            ['تاريخ الإنشاء', trip.createdAt ? format(trip.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : 'غير محدد'],
-            ['تم الإنشاء بواسطة', trip.createdBy || 'غير محدد'],
-            ['تاريخ التحديث', trip.updatedAt ? format(trip.updatedAt.toDate(), 'yyyy-MM-dd HH:mm') : 'غير محدد'],
-            ['ملاحظات عامة', trip.notes || 'لا يوجد']
+            [tr('tripNumber'), trip.id],
+            [tr('tripName'), trip.tripName || tr('notSpecified')],
+            [tr('vehicle'), trip.carName || tr('notSpecified')],
+            [tr('vehicleNumber'), trip.vehicleNumber || tr('notSpecified')],
+            [tr('destination'), trip.destination || tr('notSpecified')],
+            [tr('tripStatus'), trip.status || tr('notSpecified')],
+            [tr('creationDate'), trip.createdAt ? format(trip.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : tr('notSpecified')],
+            [tr('createdBy'), trip.createdBy || tr('notSpecified')],
+            [tr('updateDate'), trip.updatedAt ? format(trip.updatedAt.toDate(), 'yyyy-MM-dd HH:mm') : tr('notSpecified')],
+            [tr('generalNotes'), trip.notes || tr('none')]
         ];
 
         tripInfo.forEach(([info, details]) => {
             const row = overviewSheet.addRow([info, details]);
-            row.eachCell((cell, colNumber) => {
+                row.eachCell((cell, colNumber) => {
                 cell.style = dataStyle;
             });
         });
 
         // Add summary section
         overviewSheet.addRow([]);
-        const overviewSummaryHeader = overviewSheet.addRow(['ملخص مالي', '']);
+        const overviewSummaryHeader = overviewSheet.addRow([tr('financialSummary'), '']);
         overviewSummaryHeader.getCell(1).style = subHeaderStyle;
         overviewSheet.mergeCells(`A${overviewSummaryHeader.number}:B${overviewSummaryHeader.number}`);
 
         const totals = calculateTotals();
         const overviewSummaryData = [
-            ['إجمالي المحصلات', renderTotals(totals.collections)],
-            ['إجمالي المصاريف', renderTotals(totals.expenses)],
-            ['صافي الربح', renderTotals(totals.profit)],
-            ['عدد الشحنات', shipments.length.toString()],
-            ['عدد العناصر الموزعة', dispatchedBranchItems.length.toString()],
-            ['عدد المناديب', trip.stations ? trip.stations.length.toString() : '0']
+            [tr('totalCollections'), renderTotals(totals.collections)],
+            [tr('totalExpenses'), renderTotals(totals.expenses)],
+            [tr('netProfit'), renderTotals(totals.profit)],
+            [tr('numberOfShipments'), shipments.length.toString()],
+            [tr('numberOfDispatchedItems'), dispatchedBranchItems.length.toString()],
+            [tr('numberOfDrivers'), trip.stations ? trip.stations.length.toString() : '0']
         ];
 
         overviewSummaryData.forEach(([info, details]) => {
@@ -475,30 +478,30 @@ export default function TripDetailsPage() {
         });
         overviewSheet.getRow(3).height = 25;
 
-        // Sheet 2: Shipments - تفاصيل الشحنات
-        const shipmentsSheet = workbook.addWorksheet('تفاصيل الشحنات');
+        // Sheet 2: Shipments
+        const shipmentsSheet = workbook.addWorksheet(tr('shipmentDetails'));
         shipmentsSheet.columns = [
-            { header: 'رقم الشحنة', key: 'id', width: 15 },
-            { header: 'اسم المرسل', key: 'senderName', width: 20 },
-            { header: 'اسم المستلم', key: 'receiverName', width: 20 },
-            { header: 'رقم هاتف المستلم', key: 'receiverPhone', width: 15 },
-            { header: 'عنوان المستلم', key: 'receiverAddress', width: 30 },
-            { header: 'قيمة البضاعة', key: 'goodsValue', width: 15 },
-            { header: 'عملة البضاعة', key: 'goodsCurrency', width: 10 },
-            { header: 'أجرة النقل', key: 'shippingFee', width: 15 },
-            { header: 'عملة النقل', key: 'shippingCurrency', width: 10 },
-            { header: 'أجرة الحوالة', key: 'hwalaFee', width: 15 },
-            { header: 'عملة الحوالة', key: 'hwalaCurrency', width: 10 },
-            { header: 'طريقة دفع النقل', key: 'shippingPaymentMethod', width: 15 },
-            { header: 'إجمالي المحصل', key: 'totalCollectible', width: 20 },
-            { header: 'الحالة', key: 'status', width: 15 },
-            { header: 'تاريخ الإنشاء', key: 'createdAt', width: 15 },
-            { header: 'ملاحظات', key: 'notes', width: 30 }
+            { header: tr('shipmentNumber'), key: 'id', width: 15 },
+            { header: tr('senderName'), key: 'senderName', width: 20 },
+            { header: tr('receiverName'), key: 'receiverName', width: 20 },
+            { header: tr('receiverPhone'), key: 'receiverPhone', width: 15 },
+            { header: tr('receiverAddress'), key: 'receiverAddress', width: 30 },
+            { header: tr('goodsValue'), key: 'goodsValue', width: 15 },
+            { header: tr('goodsCurrency'), key: 'goodsCurrency', width: 10 },
+            { header: tr('shippingFee'), key: 'shippingFee', width: 15 },
+            { header: tr('shippingCurrency'), key: 'shippingCurrency', width: 10 },
+            { header: tr('transferFee'), key: 'hwalaFee', width: 15 },
+            { header: tr('transferCurrency'), key: 'hwalaCurrency', width: 10 },
+            { header: tr('shippingPaymentMethod'), key: 'shippingPaymentMethod', width: 15 },
+            { header: tr('totalCollectible'), key: 'totalCollectible', width: 20 },
+            { header: tr('status'), key: 'status', width: 15 },
+            { header: tr('creationDate'), key: 'createdAt', width: 15 },
+            { header: tr('notes'), key: 'notes', width: 30 }
         ];
 
         // Add header
         shipmentsSheet.mergeCells('A1:P1');
-        shipmentsSheet.getCell('A1').value = 'تفاصيل الشحنات المرتبطة بالرحلة';
+        shipmentsSheet.getCell('A1').value = tr('shipmentsAssociatedWithTrip');
         shipmentsSheet.getCell('A1').style = { 
             font: { bold: true, size: 14, color: { argb: 'FF000000' } }, 
             alignment: { horizontal: 'center', vertical: 'middle' },
@@ -509,9 +512,9 @@ export default function TripDetailsPage() {
 
         // Add column headers
         const shipmentHeaders = [
-            'رقم الشحنة', 'اسم المرسل', 'اسم المستلم', 'رقم هاتف المستلم', 'عنوان المستلم',
-            'قيمة البضاعة', 'عملة البضاعة', 'أجرة النقل', 'عملة النقل', 'أجرة الحوالة',
-            'عملة الحوالة', 'طريقة دفع النقل', 'إجمالي المحصل', 'الحالة', 'تاريخ الإنشاء', 'ملاحظات'
+            tr('shipmentNumber'), tr('senderName'), tr('receiverName'), tr('receiverPhone'), tr('receiverAddress'),
+            tr('goodsValue'), tr('goodsCurrency'), tr('shippingFee'), tr('shippingCurrency'), tr('transferFee'),
+            tr('transferCurrency'), tr('shippingPaymentMethod'), tr('totalCollectible'), tr('status'), tr('creationDate'), tr('notes')
         ];
         const headerRow = shipmentsSheet.addRow(shipmentHeaders);
         headerRow.eachCell((cell) => {
@@ -530,9 +533,9 @@ export default function TripDetailsPage() {
 
                 // Helper function to clean data
                 const cleanData = (value) => {
-                    if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
+                    if (!value || value === 'undefined' || value === 'null') return tr('notSpecified');
                     if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                        return 'غير محدد';
+                        return tr('notSpecified');
                     }
                     return value;
                 };
@@ -549,11 +552,11 @@ export default function TripDetailsPage() {
                     shipment.shippingFeeCurrency || 'USD',
                     shipment.hwalaFee || 0,
                     shipment.hwalaFeeCurrency || 'USD',
-                    shipment.shippingFeePaymentMethod === 'collect' ? 'تحصيل' : 'مدفوع مسبقاً',
+                    shipment.shippingFeePaymentMethod === 'collect' ? tr('collect') : tr('prepaid'),
                     totalCollectible,
                     cleanData(shipment.status),
-                    shipment.createdAt ? format(shipment.createdAt.toDate(), 'yyyy-MM-dd') : 'غير محدد',
-                    cleanData(shipment.notes || shipment.description) || 'لا يوجد'
+                    shipment.createdAt ? format(shipment.createdAt.toDate(), 'yyyy-MM-dd') : tr('notSpecified'),
+                    cleanData(shipment.notes || shipment.description) || tr('none')
                 ]);
 
                 shipmentRow.eachCell((cell, colNumber) => {
@@ -561,7 +564,7 @@ export default function TripDetailsPage() {
                 });
             });
         } else {
-            const noDataRow = shipmentsSheet.addRow(['لا توجد شحنات مرتبطة بهذه الرحلة']);
+            const noDataRow = shipmentsSheet.addRow([tr('noShipmentsAssociatedWithTrip')]);
             shipmentsSheet.mergeCells(`A${noDataRow.number}:P${noDataRow.number}`);
             noDataRow.getCell(1).style = { 
                 font: { italic: true, color: { argb: 'FF808080' } }, 
@@ -575,20 +578,20 @@ export default function TripDetailsPage() {
         });
         shipmentsSheet.getRow(3).height = 25;
 
-        // Sheet 3: Stations & Drivers - تفاصيل المحطات والمناديب
-        const stationsSheet = workbook.addWorksheet('المحطات والمناديب');
+        // Sheet 3: Stations & Drivers
+        const stationsSheet = workbook.addWorksheet(tr('stationsAndDrivers'));
         stationsSheet.columns = [
-            { header: 'المحطة', key: 'stationName', width: 25 },
-            { header: 'اسم المندوب', key: 'driverName', width: 25 },
-            { header: 'رقم هاتف المندوب', key: 'driverPhone', width: 15 },
-            { header: 'نسبة العمولة', key: 'commissionPercentage', width: 15 },
-            { header: 'مبلغ العمولة', key: 'commissionAmount', width: 20 },
-            { header: 'ملاحظات', key: 'notes', width: 30 }
+            { header: tr('station'), key: 'stationName', width: 25 },
+            { header: tr('driverName'), key: 'driverName', width: 25 },
+            { header: tr('driverPhone'), key: 'driverPhone', width: 15 },
+            { header: tr('commissionPercentage'), key: 'commissionPercentage', width: 15 },
+            { header: tr('commissionAmount'), key: 'commissionAmount', width: 20 },
+            { header: tr('notes'), key: 'notes', width: 30 }
         ];
 
         // Add header
         stationsSheet.mergeCells('A1:F1');
-        stationsSheet.getCell('A1').value = 'تفاصيل المحطات والمناديب';
+        stationsSheet.getCell('A1').value = tr('stationsAndDriversDetails');
         stationsSheet.getCell('A1').style = { 
             font: { bold: true, size: 14, color: { argb: 'FF000000' } }, 
             alignment: { horizontal: 'center', vertical: 'middle' },
@@ -599,7 +602,7 @@ export default function TripDetailsPage() {
 
         // Add column headers
         const stationHeaders = [
-            'المحطة', 'اسم المندوب', 'رقم هاتف المندوب', 'نسبة العمولة', 'مبلغ العمولة', 'ملاحظات'
+            tr('station'), tr('driverName'), tr('driverPhone'), tr('commissionPercentage'), tr('commissionAmount'), tr('notes')
         ];
         const stationHeaderRow = stationsSheet.addRow(stationHeaders);
         stationHeaderRow.eachCell((cell) => {
@@ -615,9 +618,9 @@ export default function TripDetailsPage() {
                 
                 // Helper function to clean station data
                 const cleanStationData = (value) => {
-                    if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
+                    if (!value || value === 'undefined' || value === 'null') return tr('notSpecified');
                     if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                        return 'غير محدد';
+                        return tr('notSpecified');
                     }
                     return value;
                 };
@@ -626,9 +629,9 @@ export default function TripDetailsPage() {
                     cleanStationData(station.stationName),
                     cleanStationData(station.driverName),
                     cleanStationData(station.driverPhone),
-                    station.commissionPercentage ? `${station.commissionPercentage}%` : 'غير محدد',
+                    station.commissionPercentage ? `${station.commissionPercentage}%` : tr('notSpecified'),
                     `${commissionAmount.toLocaleString()} USD`,
-                    cleanStationData(station.notes) || 'لا يوجد'
+                    cleanStationData(station.notes) || tr('none')
                 ]);
 
                 stationRow.eachCell((cell, colNumber) => {
@@ -636,7 +639,7 @@ export default function TripDetailsPage() {
                 });
             });
         } else {
-            const noDataRow = stationsSheet.addRow(['لا توجد محطات محددة لهذه الرحلة']);
+            const noDataRow = stationsSheet.addRow([tr('noStationsSpecifiedForTrip')]);
             stationsSheet.mergeCells(`A${noDataRow.number}:F${noDataRow.number}`);
             noDataRow.getCell(1).style = { 
                 font: { italic: true, color: { argb: 'FF808080' } }, 
@@ -650,19 +653,19 @@ export default function TripDetailsPage() {
         });
         stationsSheet.getRow(3).height = 25;
 
-        // Sheet 4: Expenses - تفاصيل المصاريف
-        const expensesSheet = workbook.addWorksheet('تفاصيل المصاريف');
+        // Sheet 4: Expenses
+        const expensesSheet = workbook.addWorksheet(tr('expenseDetails'));
         expensesSheet.columns = [
-            { header: 'نوع المصروف', key: 'expenseType', width: 25 },
-            { header: 'التفاصيل', key: 'details', width: 30 },
-            { header: 'المبلغ', key: 'amount', width: 20 },
-            { header: 'العملة', key: 'currency', width: 10 },
-            { header: 'ملاحظات', key: 'notes', width: 30 }
+            { header: tr('expenseType'), key: 'expenseType', width: 25 },
+            { header: tr('details'), key: 'details', width: 30 },
+            { header: tr('amount'), key: 'amount', width: 20 },
+            { header: tr('currency'), key: 'currency', width: 10 },
+            { header: tr('notes'), key: 'notes', width: 30 }
         ];
 
         // Add header
         expensesSheet.mergeCells('A1:E1');
-        expensesSheet.getCell('A1').value = 'تفاصيل مصاريف الرحلة';
+        expensesSheet.getCell('A1').value = tr('tripExpenseDetails');
         expensesSheet.getCell('A1').style = { 
             font: { bold: true, size: 14, color: { argb: 'FF000000' } }, 
             alignment: { horizontal: 'center', vertical: 'middle' },
@@ -673,7 +676,7 @@ export default function TripDetailsPage() {
 
         // Add column headers
         const expenseHeaders = [
-            'نوع المصروف', 'التفاصيل', 'المبلغ', 'العملة', 'ملاحظات'
+            tr('expenseType'), tr('details'), tr('amount'), tr('currency'), tr('notes')
         ];
         const expenseHeaderRow = expensesSheet.addRow(expenseHeaders);
         expenseHeaderRow.eachCell((cell) => {
@@ -684,20 +687,20 @@ export default function TripDetailsPage() {
 
         // Add expenses data
         const expensesData = [
-            ['إيجار المركبة', 'إيجار المركبة للرحلة', expenses.vehicleRental, 'USD', 'مصروف ثابت'],
-            ['مصروف إضافي 1', expenses.expense1_name || 'غير محدد', expenses.expense1_value, 'USD', 'مصروف إضافي'],
-            ['مصروف إضافي 2', expenses.expense2_name || 'غير محدد', expenses.expense2_value, 'USD', 'مصروف إضافي'],
-            ['مصاريف المكتب', 'مصاريف المكتب', trip.officeExpenses || 0, trip.officeExpensesCurrency || 'USD', 'مصاريف إدارية'],
-            ['مصاريف المركبة', 'مصاريف المركبة', trip.carExpenses || 0, trip.carExpensesCurrency || 'USD', 'مصاريف تشغيلية']
+            [tr('vehicleRental'), tr('vehicleRentalForTrip'), expenses.vehicleRental, 'USD', tr('fixedExpense')],
+            [tr('additionalExpense1'), expenses.expense1_name || tr('notSpecified'), expenses.expense1_value, 'USD', tr('additionalExpense')],
+            [tr('additionalExpense2'), expenses.expense2_name || tr('notSpecified'), expenses.expense2_value, 'USD', tr('additionalExpense')],
+            [tr('officeExpenses'), tr('officeExpenses'), trip.officeExpenses || 0, trip.officeExpensesCurrency || 'USD', tr('administrativeExpenses')],
+            [tr('vehicleExpenses'), tr('vehicleExpenses'), trip.carExpenses || 0, trip.carExpensesCurrency || 'USD', tr('operationalExpenses')]
         ];
 
         expensesData.forEach(([type, details, amount, currency, notes]) => {
             if (amount > 0) {
                 // Helper function to clean expense data
                 const cleanExpenseData = (value) => {
-                    if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
+                    if (!value || value === 'undefined' || value === 'null') return tr('notSpecified');
                     if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                        return 'غير محدد';
+                        return tr('notSpecified');
                     }
                     return value;
                 };
@@ -722,22 +725,22 @@ export default function TripDetailsPage() {
         });
         expensesSheet.getRow(3).height = 25;
 
-        // Sheet 5: Dispatched Items - العناصر الموزعة
+        // Sheet 5: Dispatched Items
         if (dispatchedBranchItems.length > 0) {
-            const itemsSheet = workbook.addWorksheet('العناصر الموزعة');
+            const itemsSheet = workbook.addWorksheet(tr('dispatchedItems'));
             itemsSheet.columns = [
-                { header: 'رقم العنصر', key: 'itemId', width: 15 },
-                { header: 'اسم العنصر', key: 'itemName', width: 25 },
-                { header: 'الكمية', key: 'quantity', width: 15 },
-                { header: 'قيمة العنصر', key: 'itemValue', width: 20 },
-                { header: 'العملة', key: 'itemCurrency', width: 10 },
-                { header: 'رقم الإدخال الأصلي', key: 'originalEntryId', width: 20 },
-                { header: 'ملاحظات', key: 'notes', width: 30 }
+                { header: tr('itemNumber'), key: 'itemId', width: 15 },
+                { header: tr('itemName'), key: 'itemName', width: 25 },
+                { header: tr('quantity'), key: 'quantity', width: 15 },
+                { header: tr('itemValue'), key: 'itemValue', width: 20 },
+                { header: tr('currency'), key: 'itemCurrency', width: 10 },
+                { header: tr('originalEntryNumber'), key: 'originalEntryId', width: 20 },
+                { header: tr('notes'), key: 'notes', width: 30 }
             ];
 
             // Add header
             itemsSheet.mergeCells('A1:G1');
-            itemsSheet.getCell('A1').value = 'العناصر الموزعة من إدخالات الفرع';
+            itemsSheet.getCell('A1').value = tr('dispatchedItemsFromBranchEntries');
             itemsSheet.getCell('A1').style = { 
                 font: { bold: true, size: 14, color: { argb: 'FF000000' } }, 
                 alignment: { horizontal: 'center', vertical: 'middle' },
@@ -748,7 +751,7 @@ export default function TripDetailsPage() {
 
             // Add column headers
             const itemHeaders = [
-                'رقم العنصر', 'اسم العنصر', 'الكمية', 'قيمة العنصر', 'العملة', 'رقم الإدخال الأصلي', 'ملاحظات'
+                tr('itemNumber'), tr('itemName'), tr('quantity'), tr('itemValue'), tr('currency'), tr('originalEntryNumber'), tr('notes')
             ];
             const itemHeaderRow = itemsSheet.addRow(itemHeaders);
             itemHeaderRow.eachCell((cell) => {
@@ -760,13 +763,13 @@ export default function TripDetailsPage() {
             // Add items data
             dispatchedBranchItems.forEach(item => {
                 const itemRow = itemsSheet.addRow([
-                    item.itemId || 'غير محدد',
-                    item.itemName || 'غير محدد',
+                    item.itemId || tr('notSpecified'),
+                    item.itemName || tr('notSpecified'),
                     item.quantity || 1,
                     item.itemValue || 0,
                     item.itemCurrency || 'USD',
-                    item.originalEntryId || 'غير محدد',
-                    item.notes || 'لا يوجد'
+                    item.originalEntryId || tr('notSpecified'),
+                    item.notes || tr('none')
                 ]);
 
                 itemRow.eachCell((cell, colNumber) => {
@@ -781,347 +784,78 @@ export default function TripDetailsPage() {
             itemsSheet.getRow(3).height = 25;
         }
 
-        // Sheet 6: Detailed Shipments Financial - تفاصيل مالية الشحنات
-        const shipmentsFinancialSheet = workbook.addWorksheet('تفاصيل مالية الشحنات');
-        shipmentsFinancialSheet.columns = [
-            { header: 'رقم الشحنة', key: 'id', width: 15 },
-            { header: 'اسم المرسل', key: 'senderName', width: 20 },
-            { header: 'اسم المستلم', key: 'receiverName', width: 20 },
-            { header: 'قيمة البضاعة', key: 'goodsValue', width: 15 },
-            { header: 'عملة البضاعة', key: 'goodsCurrency', width: 10 },
-            { header: 'أجرة النقل', key: 'shippingFee', width: 15 },
-            { header: 'عملة النقل', key: 'shippingCurrency', width: 10 },
-            { header: 'أجرة الحوالة', key: 'hwalaFee', width: 15 },
-            { header: 'عملة الحوالة', key: 'hwalaCurrency', width: 10 },
-            { header: 'إجمالي البضاعة', key: 'totalGoods', width: 15 },
-            { header: 'إجمالي النقل', key: 'totalShipping', width: 15 },
-            { header: 'إجمالي الحوالة', key: 'totalHwala', width: 15 },
-            { header: 'المجموع الكلي', key: 'grandTotal', width: 20 },
-            { header: 'طريقة الدفع', key: 'paymentMethod', width: 15 }
-        ];
-
-        // Add header
-        shipmentsFinancialSheet.mergeCells('A1:N1');
-        shipmentsFinancialSheet.getCell('A1').value = 'التفاصيل المالية للشحنات';
-        shipmentsFinancialSheet.getCell('A1').style = { 
-            font: { bold: true, size: 14, color: { argb: 'FF000000' } }, 
-            alignment: { horizontal: 'center', vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }
-        };
-        shipmentsFinancialSheet.getRow(1).height = 25;
-        shipmentsFinancialSheet.addRow([]);
-
-        // Add column headers
-        const financialHeaders = [
-            'رقم الشحنة', 'اسم المرسل', 'اسم المستلم', 'قيمة البضاعة', 'عملة البضاعة',
-            'أجرة النقل', 'عملة النقل', 'أجرة الحوالة', 'عملة الحوالة', 'إجمالي البضاعة',
-            'إجمالي النقل', 'إجمالي الحوالة', 'المجموع الكلي', 'طريقة الدفع'
-        ];
-        const financialHeaderRow = shipmentsFinancialSheet.addRow(financialHeaders);
-        financialHeaderRow.eachCell((cell) => {
-            cell.style = headerStyle;
-        });
-        financialHeaderRow.height = 25;
-        shipmentsFinancialSheet.addRow([]);
-        shipmentsFinancialSheet.addRow([]);
-
-        // Add shipments financial data
-        if (shipments.length > 0) {
-            let totalGoodsUSD = 0;
-            let totalShippingUSD = 0;
-            let totalHwalaUSD = 0;
-
-            shipments.forEach(shipment => {
-                const goodsValue = parseFloat(shipment.goodsValue) || 0;
-                const shippingFee = parseFloat(shipment.shippingFee) || 0;
-                const hwalaFee = parseFloat(shipment.hwalaFee) || 0;
-
-                // Convert to USD for totals (simplified calculation)
-                const goodsUSD = goodsValue;
-                const shippingUSD = shippingFee;
-                const hwalaUSD = hwalaFee;
-
-                totalGoodsUSD += goodsUSD;
-                totalShippingUSD += shippingUSD;
-                totalHwalaUSD += hwalaUSD;
-
-                const grandTotal = goodsUSD + shippingUSD + hwalaUSD;
-
-                // Helper function to clean financial data
-                const cleanFinancialData = (value) => {
-                    if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
-                    if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                        return 'غير محدد';
-                    }
-                    return value;
-                };
-
-                const financialRow = shipmentsFinancialSheet.addRow([
-                    cleanFinancialData(shipment.shipmentId || shipment.id),
-                    cleanFinancialData(shipment.senderName || shipment.customerName),
-                    cleanFinancialData(shipment.receiverName || shipment.recipientName),
-                    goodsUSD.toLocaleString(),
-                    shipment.goodsCurrency || 'USD',
-                    shippingUSD.toLocaleString(),
-                    shipment.shippingFeeCurrency || 'USD',
-                    hwalaUSD.toLocaleString(),
-                    shipment.hwalaFeeCurrency || 'USD',
-                    goodsUSD.toLocaleString(),
-                    shippingUSD.toLocaleString(),
-                    hwalaUSD.toLocaleString(),
-                    grandTotal.toLocaleString(),
-                    shipment.shippingFeePaymentMethod === 'collect' ? 'تحصيل' : 'مدفوع مسبقاً'
-                ]);
-
-                financialRow.eachCell((cell, colNumber) => {
-                    cell.style = dataStyle;
-                });
-            });
-
-            // Add summary row
-            const summaryRow = shipmentsFinancialSheet.addRow([
-                'المجموع الكلي',
-                '',
-                '',
-                totalGoodsUSD.toLocaleString(),
-                'USD',
-                totalShippingUSD.toLocaleString(),
-                'USD',
-                totalHwalaUSD.toLocaleString(),
-                'USD',
-                totalGoodsUSD.toLocaleString(),
-                totalShippingUSD.toLocaleString(),
-                totalHwalaUSD.toLocaleString(),
-                (totalGoodsUSD + totalShippingUSD + totalHwalaUSD).toLocaleString(),
-                ''
-            ]);
-
-            summaryRow.eachCell((cell, colNumber) => {
-                cell.style = summaryStyle;
-            });
-        } else {
-            const noDataRow = shipmentsFinancialSheet.addRow(['لا توجد شحنات مرتبطة بهذه الرحلة']);
-            shipmentsFinancialSheet.mergeCells(`A${noDataRow.number}:N${noDataRow.number}`);
-            noDataRow.getCell(1).style = { 
-                font: { italic: true, color: { argb: 'FF808080' } }, 
-                alignment: { horizontal: 'center' } 
-            };
-        }
-
-        // Style header row - FIX: Apply header style to column headers
-        shipmentsFinancialSheet.getRow(3).eachCell((cell) => {
-            cell.style = headerStyle;
-        });
-        shipmentsFinancialSheet.getRow(3).height = 25;
-
-        // Sheet 7: Financial Summary - ملخص مالي شامل
-        const financialSheet = workbook.addWorksheet('ملخص مالي شامل');
-        financialSheet.columns = [
-            { header: 'البند', key: 'item', width: 30 },
-            { header: 'التفاصيل', key: 'details', width: 40 },
-            { header: 'المبلغ', key: 'amount', width: 20 },
-            { header: 'العملة', key: 'currency', width: 10 }
-        ];
-
-        // Add header
-        financialSheet.mergeCells('A1:D1');
-        financialSheet.getCell('A1').value = 'التقرير المالي الشامل للرحلة';
-        financialSheet.getCell('A1').style = { 
-            font: { bold: true, size: 16, color: { argb: 'FF000000' } }, 
-            alignment: { horizontal: 'center', vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }
-        };
-        financialSheet.getRow(1).height = 30;
-        financialSheet.addRow([]);
-
-        // Revenues section
-        const revenueHeader = financialSheet.addRow(['الإيرادات (المبالغ المحصلة)', '', '', '']);
-        revenueHeader.getCell(1).style = subHeaderStyle;
-        financialSheet.mergeCells(`A${revenueHeader.number}:D${revenueHeader.number}`);
-
-        // Add shipments revenues
-        shipments.forEach(shipment => {
-            const collectible = getCollectibleAmount(shipment);
-            Object.entries(collectible).forEach(([currency, amount]) => {
-                // Helper function to clean financial summary data
-                const cleanSummaryData = (value) => {
-                    if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
-                    if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                        return 'غير محدد';
-                    }
-                    return value;
-                };
-
-                const revenueRow = financialSheet.addRow([
-                    `شحنة: ${cleanSummaryData(shipment.id)}`,
-                    `${cleanSummaryData(shipment.senderName)} → ${cleanSummaryData(shipment.receiverName)}`,
-                    amount,
-                    currency
-                ]);
-                revenueRow.eachCell((cell, colNumber) => {
-                    cell.style = dataStyle;
-                });
-            });
-        });
-
-        // Add dispatched items revenues
-        dispatchedBranchItems.forEach(item => {
-            // Helper function to clean dispatched items data
-            const cleanDispatchedData = (value) => {
-                if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
-                if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                    return 'غير محدد';
-                }
-                return value;
-            };
-
-            const revenueRow = financialSheet.addRow([
-                `عنصر موزع: ${cleanDispatchedData(item.itemName || item.itemId)}`,
-                cleanDispatchedData(item.recipientName),
-                item.itemValue,
-                item.itemCurrency
-            ]);
-            revenueRow.eachCell((cell, colNumber) => {
-                cell.style = dataStyle;
-            });
-        });
-
-        financialSheet.addRow([]);
-
-        // Expenses section
-        const expenseHeader = financialSheet.addRow(['المصاريف', '', '', '']);
-        expenseHeader.getCell(1).style = subHeaderStyle;
-        financialSheet.mergeCells(`A${expenseHeader.number}:D${expenseHeader.number}`);
-
-        // Add expenses
-        const allExpenses = [
-            ['إيجار المركبة', 'مصروف ثابت', expenses.vehicleRental, 'USD'],
-            ['مصروف إضافي 1', expenses.expense1_name || 'غير محدد', expenses.expense1_value, 'USD'],
-            ['مصروف إضافي 2', expenses.expense2_name || 'غير محدد', expenses.expense2_value, 'USD'],
-            ['مصاريف المكتب', 'مصاريف إدارية', trip.officeExpenses || 0, trip.officeExpensesCurrency || 'USD'],
-            ['مصاريف المركبة', 'مصاريف تشغيلية', trip.carExpenses || 0, trip.carExpensesCurrency || 'USD']
-        ];
-
-        allExpenses.forEach(([type, details, amount, currency]) => {
-            if (amount > 0) {
-                // Helper function to clean expense summary data
-                const cleanExpenseSummaryData = (value) => {
-                    if (!value || value === 'undefined' || value === 'null') return 'غير محدد';
-                    if (typeof value === 'string' && (value.includes('الشحنة') || value.includes('المندوب'))) {
-                        return 'غير محدد';
-                    }
-                    return value;
-                };
-
-                const expenseRow = financialSheet.addRow([
-                    cleanExpenseSummaryData(type), 
-                    cleanExpenseSummaryData(details), 
-                    amount, 
-                    currency
-                ]);
-                expenseRow.eachCell((cell, colNumber) => {
-                    cell.style = dataStyle;
-                });
-            }
-        });
-
-        financialSheet.addRow([]);
-
-        // Summary section
-        const summaryHeader = financialSheet.addRow(['الملخص', '', '', '']);
-        summaryHeader.getCell(1).style = subHeaderStyle;
-        financialSheet.mergeCells(`A${summaryHeader.number}:D${summaryHeader.number}`);
-
-        const summaryData = [
-            ['إجمالي الإيرادات', 'جميع المبالغ المحصلة', Object.values(totals.collections).reduce((sum, val) => sum + val, 0), 'USD'],
-            ['إجمالي المصاريف', 'جميع المصاريف', Object.values(totals.expenses).reduce((sum, val) => sum + val, 0), 'USD'],
-            ['صافي الربح/الخسارة', 'الإيرادات - المصاريف', Object.values(totals.profit).reduce((sum, val) => sum + val, 0), 'USD']
-        ];
-
-        summaryData.forEach(([type, details, amount, currency]) => {
-            const summaryRow = financialSheet.addRow([type, details, amount, currency]);
-            summaryRow.eachCell((cell, colNumber) => {
-                cell.style = summaryStyle;
-            });
-        });
-
-        // Style header row
-        financialSheet.getRow(3).eachCell((cell) => {
-            cell.style = headerStyle;
-        });
-        financialSheet.getRow(3).height = 25;
-
         // Write to file
         workbook.xlsx.writeBuffer().then((buffer) => {
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const today = new Date().toISOString().split('T')[0];
-            saveAs(blob, `تقرير_الرحلة_${trip.id}_${today}.xlsx`);
+            const fileName = language === 'ar' ? `تقرير_الرحلة_${trip.id}_${today}.xlsx` : `Trip_Report_${trip.id}_${today}.xlsx`;
+            saveAs(blob, fileName);
         });
     };
 
 
     if (isLoading) {
-        return <div className="text-center p-10 text-gray-600" dir="rtl">جاري تحميل تفاصيل الرحلة...</div>;
+        return <div className="text-center p-10 text-gray-600" dir={language === 'ar' ? 'rtl' : 'ltr'}>{tr('loadingTripDetails')}</div>;
     }
 
     if (error) {
-        return <div className="text-center p-10 text-red-500 bg-red-100 rounded-md m-4" dir="rtl">{error}</div>;
+        return <div className="text-center p-10 text-red-500 bg-red-100 rounded-md m-4" dir={language === 'ar' ? 'rtl' : 'ltr'}>{error}</div>;
     }
 
     if (!trip) {
-        return <div className="text-center p-10 text-gray-500" dir="rtl">لا توجد بيانات لعرضها.</div>;
+        return <div className="text-center p-10 text-gray-500" dir={language === 'ar' ? 'rtl' : 'ltr'}>{tr('noDataToDisplay')}</div>;
     }
 
     return (
-        <div className="bg-gray-50 min-h-screen p-4 sm:p-8 font-sans" dir="rtl">
+        <div className="bg-gray-50 min-h-screen p-4 sm:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800">تفاصيل الرحلة: <span className="text-indigo-600">{trip.carName} - {trip.destination}</span></h1>
-                        <p className="text-gray-500">تاريخ الإنشاء: {trip.createdAt ? format(trip.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : 'N/A'}</p>
+                        <h1 className="text-3xl font-bold text-gray-800">{tr('tripDetails')}: <span className="text-indigo-600">{trip.carName} - {trip.destination}</span></h1>
+                        <p className="text-gray-500">{tr('creationDate')}: {trip.createdAt ? format(trip.createdAt.toDate(), 'yyyy-MM-dd HH:mm') : 'N/A'}</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handleExportTrip}
                             className="flex items-center gap-2 bg-green-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200"
                         >
-                            <DownloadIcon className="w-5 h-5" /><span>تصدير Excel</span>
+                            <DownloadIcon className="w-5 h-5" /><span>{tr('exportExcel')}</span>
                         </button>
                         <button
                             onClick={() => setShowPrintReceipt(true)}
                             className="flex items-center gap-2 bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-colors duration-200"
                         >
-                            <PrinterIcon className="w-5 h-5" /><span>طباعة وصل</span>
+                            <PrinterIcon className="w-5 h-5" /><span>{tr('printReceipt')}</span>
                         </button>
                         <Link to="/trips" className="text-sm text-indigo-600 hover:underline">
-                            → العودة إلى قائمة الرحلات
+                            → {tr('backToTripsList')}
                         </Link>
                         <button
                             onClick={handleDeleteTrip}
                             className="flex items-center gap-2 bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200"
                         >
-                            حذف الرحلة
+                            {tr('deleteTrip')}
                         </button>
                     </div>
                 </div>
 
                 {/* Trip General Info */}
                 <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">معلومات الرحلة</h2>
+                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">{tr('tripInformation')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-700">
-                        <p><strong>المركبة:</strong> {trip.carName}</p>
-                        <p><strong>الوجهة:</strong> {trip.destination}</p>
+                        <p><strong>{tr('vehicle')}:</strong> {trip.carName}</p>
+                        <p><strong>{tr('destination')}:</strong> {trip.destination}</p>
                         {/* Status Display and Selector */}
                         <p className="flex items-center gap-2">
-                            <strong>الحالة:</strong>
+                            <strong>{tr('status')}:</strong>
                             <StatusSelector currentStatus={trip.status} onStatusChange={handleStatusChange} />
                             {/* NEW: Clarification for status */}
-                            <span className="text-xs text-gray-500 mr-2">(تغيير حالة هذه الرحلة المجمعة)</span>
+                            <span className="text-xs text-gray-500 mr-2">({tr('changeStatusOfAggregatedTrip')})</span>
                         </p>
-                        <p><strong>تم الإنشاء بواسطة:</strong> {trip.createdBy || 'N/A'}</p>
+                        <p><strong>{tr('createdBy')}:</strong> {trip.createdBy || 'N/A'}</p>
                         {/* Display Office and Car Expenses */}
-                        <p><strong>مصاريف المكتب:</strong> {trip.officeExpenses?.toLocaleString() || 0} {trip.officeExpensesCurrency || 'USD'}</p>
-                        <p><strong>مصاريف السيارة:</strong> {trip.carExpenses?.toLocaleString() || 0} {trip.carExpensesCurrency || 'USD'}</p>
+                        <p><strong>{tr('officeExpenses')}:</strong> {trip.officeExpenses?.toLocaleString() || 0} {trip.officeExpensesCurrency || 'USD'}</p>
+                        <p><strong>{tr('vehicleExpenses')}:</strong> {trip.carExpenses?.toLocaleString() || 0} {trip.carExpensesCurrency || 'USD'}</p>
                         {/* Display additional expenses */}
                         {trip.expense1_name && trip.expense1_value > 0 && (
                             <p><strong>{trip.expense1_name}:</strong> {trip.expense1_value?.toLocaleString() || 0} {trip.expense1_currency || 'USD'}</p>
@@ -1129,7 +863,7 @@ export default function TripDetailsPage() {
                         {trip.expense2_name && trip.expense2_value > 0 && (
                             <p><strong>{trip.expense2_name}:</strong> {trip.expense2_value?.toLocaleString() || 0} {trip.expense2_currency || 'USD'}</p>
                         )}
-                        <p className="col-span-full"><strong>ملاحظات عامة:</strong> {trip.notes || 'لا يوجد ملاحظات'}</p>
+                        <p className="col-span-full"><strong>{tr('generalNotes')}:</strong> {trip.notes || tr('none')}</p>
                     </div>
                 </div>
 
@@ -1137,13 +871,13 @@ export default function TripDetailsPage() {
                 {trip.stations && trip.stations.length > 0 && (
                     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                         <div className="flex justify-between items-center mb-4 border-b pb-2">
-                            <h2 className="text-xl font-semibold">محطات الرحلة والمناديب</h2>
+                            <h2 className="text-xl font-semibold">{tr('tripStationsAndDelegates')}</h2>
                             {!isEditingStations ? (
                                 <button
                                     onClick={() => setIsEditingStations(true)}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                 >
-                                    تعديل نسب العمولات
+                                    {tr('editCommissionRates')}
                                 </button>
                             ) : (
                                 <div className="flex gap-2">
@@ -1151,13 +885,13 @@ export default function TripDetailsPage() {
                                         onClick={handleSaveStations}
                                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                                     >
-                                        حفظ التغييرات
+                                        {tr('saveChanges')}
                                     </button>
                                     <button
                                         onClick={handleCancelStationsEdit}
                                         className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                                     >
-                                        إلغاء
+                                        {tr('cancel')}
                                     </button>
                                 </div>
                             )}
@@ -1170,15 +904,15 @@ export default function TripDetailsPage() {
                                     <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-600">المحطة</p>
+                                                <p className="text-sm font-semibold text-gray-600">{tr('station')}</p>
                                                 <p className="text-lg font-bold text-gray-900">{station.stationName}</p>
                                             </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-600">المندوب المسؤول</p>
+                                                <p className="text-sm font-semibold text-gray-600">{tr('responsibleDelegate')}</p>
                                                 <p className="text-lg font-bold text-blue-600">{station.driverName}</p>
                                             </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-600">نسبة العمولة</p>
+                                                <p className="text-sm font-semibold text-gray-600">{tr('commissionPercentage')}</p>
                                                 {isEditingStations ? (
                                                     <div className="flex items-center gap-2">
                                                         <input
@@ -1197,7 +931,7 @@ export default function TripDetailsPage() {
                                                 )}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-600">مبلغ العمولة</p>
+                                                <p className="text-sm font-semibold text-gray-600">{tr('commissionAmount')}</p>
                                                 <p className="text-lg font-bold text-green-600">
                                                     {commissionAmount.toLocaleString()} USD
                                                 </p>
@@ -1205,7 +939,7 @@ export default function TripDetailsPage() {
                                         </div>
                                         {station.notes && (
                                             <div className="mt-3 pt-3 border-t border-gray-200">
-                                                <p className="text-sm font-semibold text-gray-600">ملاحظات</p>
+                                                <p className="text-sm font-semibold text-gray-600">{tr('notes')}</p>
                                                 <p className="text-gray-700">{station.notes}</p>
                                             </div>
                                         )}
@@ -1216,7 +950,7 @@ export default function TripDetailsPage() {
                         
                         <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                             <p className="text-sm font-semibold text-blue-800">
-                                إجمالي مبلغ النقل: {
+                                {tr('totalShippingAmount')}: {
                                     Object.entries(calculateTotalShippingFees())
                                         .filter(([, amount]) => amount > 0)
                                         .map(([currency, amount]) => `${amount.toLocaleString()} ${currency}`)
@@ -1225,7 +959,7 @@ export default function TripDetailsPage() {
                             </p>
                             {isEditingStations && (
                                 <p className="text-sm text-blue-600 mt-2">
-                                    💡 يمكنك تعديل نسب العمولات بناءً على المبلغ الفعلي المحصل من الشحنات
+                                    {tr('editCommissionRatesTip')}
                                 </p>
                             )}
                         </div>
@@ -1234,18 +968,18 @@ export default function TripDetailsPage() {
 
                 {/* Financial Summary */}
                 <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">الملخص المالي</h2>
+                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">{tr('financialSummary')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-700 text-center">
                         <div>
-                            <p className="text-lg font-semibold">إجمالي التحصيلات</p>
+                            <p className="text-lg font-semibold">{tr('totalCollections')}</p>
                             <p className="text-2xl font-bold text-green-600">{renderTotals(totals.collections)}</p>
                         </div>
                         <div>
-                            <p className="text-lg font-semibold">إجمالي المصاريف</p>
+                            <p className="text-lg font-semibold">{tr('totalExpenses')}</p>
                             <p className="text-2xl font-bold text-red-600">{renderTotals(totals.expenses)}</p>
                         </div>
                         <div>
-                            <p className="text-lg font-semibold">صافي الربح/الخسارة</p>
+                            <p className="text-lg font-semibold">{tr('netProfitLoss')}</p>
                             <p className="text-2xl font-bold text-blue-600">{renderTotals(totals.profit)}</p>
                         </div>
                     </div>
@@ -1253,14 +987,14 @@ export default function TripDetailsPage() {
 
                 {/* Expense Management Section (for manual updates on existing trip) */}
                 <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">إدارة المصاريف الإضافية</h2>
+                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">{tr('expenseManagement')}</h2>
                     
                     {/* Display total shipping fees for reference */}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                        <h3 className="text-lg font-semibold text-blue-800 mb-2">ملخص أجور الشحن</h3>
+                        <h3 className="text-lg font-semibold text-blue-800 mb-2">{tr('shippingFeesSummary')}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <span className="text-sm text-gray-600">إجمالي أجور الشحن (للتحصيل): </span>
+                                <span className="text-sm text-gray-600">{tr('totalShippingFeesForCollection')}: </span>
                                 <span className="font-semibold text-blue-700">
                                     {Object.entries(calculateTotalShippingFees())
                                         .filter(([, amount]) => amount > 0)
@@ -1274,18 +1008,18 @@ export default function TripDetailsPage() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div>
-                            <label htmlFor="vehicleRental" className="block text-sm font-medium text-gray-700 mb-1">إيجار المركبة (USD)</label>
+                            <label htmlFor="vehicleRental" className="block text-sm font-medium text-gray-700 mb-1">{tr('vehicleRentalUSD')}</label>
                             <input type="number" id="vehicleRental" name="vehicleRental" value={expenses.vehicleRental} onChange={handleExpenseChange} className="p-2 border rounded-md w-full" />
                         </div>
 
                         <div className="md:col-span-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="expense1_name" className="block text-sm font-medium text-gray-700 mb-1">مصروف إضافي 1 (اسم)</label>
+                                    <label htmlFor="expense1_name" className="block text-sm font-medium text-gray-700 mb-1">{tr('additionalExpense1Name')}</label>
                                     <input type="text" id="expense1_name" name="expense1_name" value={expenses.expense1_name} onChange={handleExpenseChange} className="p-2 border rounded-md w-full" />
                                 </div>
                                 <div>
-                                    <label htmlFor="expense1_value" className="block text-sm font-medium text-gray-700 mb-1">مصروف إضافي 1 (قيمة)</label>
+                                    <label htmlFor="expense1_value" className="block text-sm font-medium text-gray-700 mb-1">{tr('additionalExpense1Value')}</label>
                                     <input type="number" id="expense1_value" name="expense1_value" value={expenses.expense1_value} onChange={handleExpenseChange} className="p-2 border rounded-md w-full" />
                                 </div>
                             </div>
@@ -1294,11 +1028,11 @@ export default function TripDetailsPage() {
                         <div className="md:col-span-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="expense2_name" className="block text-sm font-medium text-gray-700 mb-1">مصروف إضافي 2 (اسم)</label>
+                                    <label htmlFor="expense2_name" className="block text-sm font-medium text-gray-700 mb-1">{tr('additionalExpense2Name')}</label>
                                     <input type="text" id="expense2_name" name="expense2_name" value={expenses.expense2_name} onChange={handleExpenseChange} className="p-2 border rounded-md w-full" />
                                 </div>
                                 <div>
-                                    <label htmlFor="expense2_value" className="block text-sm font-medium text-gray-700 mb-1">مصروف إضافي 2 (قيمة)</label>
+                                    <label htmlFor="expense2_value" className="block text-sm font-medium text-gray-700 mb-1">{tr('additionalExpense2Value')}</label>
                                     <input type="number" id="expense2_value" name="expense2_value" value={expenses.expense2_value} onChange={handleExpenseChange} className="p-2 border rounded-md w-full" />
                                 </div>
                             </div>
@@ -1306,7 +1040,7 @@ export default function TripDetailsPage() {
                     </div>
                     <div className="flex justify-end mt-6">
                         <button onClick={handleUpdateExpenses} disabled={isUpdatingExpenses} className="bg-indigo-600 text-white font-semibold px-5 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">
-                            {isUpdatingExpenses ? 'جاري الحفظ...' : 'حفظ المصاريف'}
+                            {isUpdatingExpenses ? tr('saving') : tr('saveExpenses')}
                         </button>
                     </div>
                 </div>
@@ -1314,16 +1048,16 @@ export default function TripDetailsPage() {
                 {/* Shipments in this Trip */}
                 {shipments.length > 0 && (
                     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                        <h2 className="text-xl font-semibold mb-4 border-b pb-2">الشحنات في هذه الرحلة ({shipments.length})</h2>
+                        <h2 className="text-xl font-semibold mb-4 border-b pb-2">{tr('shipmentsInThisTrip')} ({shipments.length})</h2>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-right text-gray-600">
                                 <thead className="bg-gray-100 text-gray-700 uppercase">
                                     <tr>
-                                        <th scope="col" className="px-4 py-3">رقم الشحنة</th>
-                                        <th scope="col" className="px-4 py-3">العميل</th>
-                                        <th scope="col" className="px-4 py-3">الهاتف</th>
-                                        <th scope="col" className="px-4 py-3">المحافظة</th>
-                                        <th scope="col" className="px-4 py-3">المبلغ المحصل</th>
+                                        <th scope="col" className="px-4 py-3">{tr('shipmentNumber')}</th>
+                                        <th scope="col" className="px-4 py-3">{tr('customer')}</th>
+                                        <th scope="col" className="px-4 py-3">{tr('phone')}</th>
+                                        <th scope="col" className="px-4 py-3">{tr('governorate')}</th>
+                                        <th scope="col" className="px-4 py-3">{tr('collectibleAmount')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1345,7 +1079,7 @@ export default function TripDetailsPage() {
                 {/* NEW: Dispatched Items from Branch Entries in this Trip */}
                 {dispatchedBranchItems.length > 0 && (
                     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                        <h2 className="text-xl font-semibold mb-4 border-b pb-2">بنود مخرجة من إدخالات الفروع في هذه الرحلة ({dispatchedBranchItems.length})</h2>
+                        <h2 className="text-xl font-semibold mb-4 border-b pb-2">{tr('dispatchedItemsFromBranchEntries')} ({dispatchedBranchItems.length})</h2>
                         <div className="overflow-x-auto">
                             {/* Group items by original entry */}
                             {Object.keys(originalEntriesData).map(originalEntryId => {
@@ -1356,21 +1090,21 @@ export default function TripDetailsPage() {
                                 return (
                                     <div key={originalEntryId} className="mb-6 border rounded-md p-4 bg-gray-50">
                                         <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">
-                                            من إدخال: {originalEntry?.branchName || 'N/A'} (ID: {originalEntryId.substring(0, 8)}...)
+                                            {tr('fromEntry')}: {originalEntry?.branchName || 'N/A'} (ID: {originalEntryId.substring(0, 8)}...)
                                             <Link to={`/branch-entries/${originalEntryId}`} className="text-sm text-indigo-600 hover:underline mr-2">
-                                                (عرض الإدخال الأصلي)
+                                                ({tr('viewOriginalEntry')})
                                             </Link>
                                         </h3>
                                         <table className="w-full text-sm text-right text-gray-600">
                                             <thead className="bg-gray-100 text-gray-700 uppercase">
                                                 <tr>
-                                                    <th scope="col" className="px-4 py-3">رقم البند</th>
-                                                    <th scope="col" className="px-4 py-3">الوصف</th>
-                                                    <th scope="col" className="px-4 py-3">الكمية المخرجة</th>
-                                                    <th scope="col" className="px-4 py-3">القيمة</th>
-                                                    <th scope="col" className="px-4 py-3">العملة</th>
-                                                    <th scope="col" className="px-4 py-3">المستلم</th>
-                                                    <th scope="col" className="px-4 py-3">محافظة الوجهة</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('itemNumber')}</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('itemDescription')}</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('dispatchedAmount')}</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('itemValue')}</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('currency')}</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('recipientName')}</th>
+                                                    <th scope="col" className="px-4 py-3">{tr('destinationGovernorate')}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1400,7 +1134,7 @@ export default function TripDetailsPage() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center p-4 border-b">
-                            <h3 className="text-lg font-semibold">طباعة وصل الرحلة</h3>
+                            <h3 className="text-lg font-semibold">{tr('printTripReceipt')}</h3>
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => {
@@ -1409,7 +1143,7 @@ export default function TripDetailsPage() {
                                         printWindow.document.write(`
                                             <html>
                                                 <head>
-                                                    <title>وصل رحلة شحن - ${trip.tripName || trip.carName}</title>
+                                                    <title>${tr('printTripReceipt')} - ${trip.tripName || trip.carName}</title>
                                                     <style>
                                                         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
                                                         @media print {
@@ -1430,13 +1164,13 @@ export default function TripDetailsPage() {
                                     }}
                                     className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
                                 >
-                                    طباعة
+                                    {tr('print')}
                                 </button>
                                 <button
                                     onClick={() => setShowPrintReceipt(false)}
                                     className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
                                 >
-                                    إغلاق
+                                    {tr('close')}
                                 </button>
                             </div>
                         </div>

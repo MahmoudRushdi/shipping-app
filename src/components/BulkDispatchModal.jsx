@@ -238,7 +238,7 @@ export default function BulkDispatchModal({ closeModal, onDispatchComplete, sele
                                     value={dispatchData.destinationCities}
                                     onChange={handleChange}
                                     className="p-2 border rounded-md w-full"
-                                    placeholder="مثال: حلب، دمشق"
+                                    placeholder="مثال: نيقوسيا، فاماغوستا"
                                     required
                                 />
                             </div>

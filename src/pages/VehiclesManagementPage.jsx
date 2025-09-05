@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function VehiclesManagementPage() {
     const navigate = useNavigate();
+    const { language, tr } = useLanguage();
     const [vehicles, setVehicles] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +60,7 @@ export default function VehiclesManagementPage() {
                     capacity: parseFloat(formData.capacity) || 0,
                     updatedAt: new Date()
                 });
+                alert(tr('vehicleUpdatedSuccess'));
             } else {
                 // Add new vehicle
                 await addDoc(collection(db, 'vehicles'), {
@@ -65,6 +68,7 @@ export default function VehiclesManagementPage() {
                     capacity: parseFloat(formData.capacity) || 0,
                     createdAt: new Date()
                 });
+                alert(tr('vehicleAddedSuccess'));
             }
             
             // Reset form and close modal
@@ -79,11 +83,9 @@ export default function VehiclesManagementPage() {
             });
             setEditingVehicle(null);
             setIsModalOpen(false);
-            
-            alert(editingVehicle ? 'تم تحديث السيارة بنجاح!' : 'تم إضافة السيارة بنجاح!');
         } catch (error) {
             console.error('Error saving vehicle:', error);
-            alert('حدث خطأ أثناء حفظ السيارة. يرجى المحاولة مرة أخرى.');
+            alert(tr('errorSavingVehicle'));
         }
     };
 
@@ -102,13 +104,13 @@ export default function VehiclesManagementPage() {
     };
 
     const handleDelete = async (vehicleId) => {
-        if (window.confirm('هل أنت متأكد من أنك تريد حذف هذه السيارة؟')) {
+        if (window.confirm(tr('confirmDeleteVehicle'))) {
             try {
                 await deleteDoc(doc(db, 'vehicles', vehicleId));
-                alert('تم حذف السيارة بنجاح!');
+                alert(tr('vehicleDeletedSuccess'));
             } catch (error) {
                 console.error('Error deleting vehicle:', error);
-                alert('حدث خطأ أثناء حذف السيارة.');
+                alert(tr('errorDeletingVehicle'));
             }
         }
     };
@@ -155,7 +157,7 @@ export default function VehiclesManagementPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-full mx-auto"
                 variants={containerVariants}
@@ -172,16 +174,16 @@ export default function VehiclesManagementPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة للوحة التحكم
+                                {tr('backToDashboard')}
                             </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إدارة السيارات</h1>
+                            <h1 className="text-3xl font-bold gradient-text">{tr('vehiclesManagement')}</h1>
                         </div>
                         <AnimatedButton
                             onClick={openAddModal}
                             variant="primary"
                             icon={PlusCircleIcon}
                         >
-                            إضافة سيارة جديدة
+                            {tr('addNewVehicle')}
                         </AnimatedButton>
                     </div>
                 </motion.div>
@@ -191,7 +193,7 @@ export default function VehiclesManagementPage() {
                     <AnimatedCard className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">إجمالي السيارات</p>
+                                <p className="text-sm text-gray-600">{tr('totalVehicles')}</p>
                                 <p className="text-2xl font-bold text-gray-900">{vehicles.length}</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-lg">
@@ -203,7 +205,7 @@ export default function VehiclesManagementPage() {
                     <AnimatedCard className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">السيارات النشطة</p>
+                                <p className="text-sm text-gray-600">{tr('activeVehicles')}</p>
                                 <p className="text-2xl font-bold text-gray-900">
                                     {vehicles.filter(v => v.status === 'active').length}
                                 </p>
@@ -217,7 +219,7 @@ export default function VehiclesManagementPage() {
                     <AnimatedCard className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">السيارات المتوقفة</p>
+                                <p className="text-sm text-gray-600">{tr('inactiveVehicles')}</p>
                                 <p className="text-2xl font-bold text-gray-900">
                                     {vehicles.filter(v => v.status === 'inactive').length}
                                 </p>
@@ -237,7 +239,7 @@ export default function VehiclesManagementPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل السيارات..."
+                                text={tr('loadingVehicles')}
                             />
                         </div>
                     ) : (
@@ -266,15 +268,15 @@ export default function VehiclesManagementPage() {
                                                             ? 'bg-green-100 text-green-800' 
                                                             : 'bg-red-100 text-red-800'
                                                     }`}>
-                                                        {vehicle.status === 'active' ? 'نشطة' : 'متوقفة'}
+                                                        {vehicle.status === 'active' ? tr('active') : tr('inactive')}
                                                     </span>
                                                 </div>
                                                 
                                                 <div className="space-y-2 mb-4">
-                                                    <p className="text-sm"><strong>صاحب السيارة:</strong> {vehicle.ownerName || vehicle.driverName}</p>
-                                                    <p className="text-sm"><strong>الهاتف:</strong> {vehicle.ownerPhone || vehicle.driverPhone}</p>
-                                                    <p className="text-sm"><strong>الوجهة:</strong> {vehicle.destination || 'غير محدد'}</p>
-                                                    <p className="text-sm"><strong>السعة:</strong> {vehicle.capacity} طن</p>
+                                                    <p className="text-sm"><strong>{tr('ownerName')}:</strong> {vehicle.ownerName || vehicle.driverName}</p>
+                                                    <p className="text-sm"><strong>{tr('ownerPhone')}:</strong> {vehicle.ownerPhone || vehicle.driverPhone}</p>
+                                                    <p className="text-sm"><strong>{tr('destination')}:</strong> {vehicle.destination || tr('notSpecified')}</p>
+                                                    <p className="text-sm"><strong>{tr('capacityTons')}:</strong> {vehicle.capacity} {language === 'ar' ? 'طن' : ''}</p>
                                                 </div>
                                                 
                                                 <div className="flex items-center justify-end gap-2 border-t pt-3">
@@ -303,14 +305,14 @@ export default function VehiclesManagementPage() {
                                 <table className="w-full text-sm text-right">
                                     <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                                         <tr>
-                                            <th className="p-4 font-semibold">رقم السيارة</th>
-                                            <th className="p-4 font-semibold">نوع السيارة</th>
-                                            <th className="p-4 font-semibold">صاحب السيارة</th>
-                                            <th className="p-4 font-semibold">هاتف صاحب السيارة</th>
-                                            <th className="p-4 font-semibold">الوجهة</th>
-                                            <th className="p-4 font-semibold">السعة (طن)</th>
-                                            <th className="p-4 font-semibold">الحالة</th>
-                                            <th className="p-4 font-semibold">إجراءات</th>
+                                            <th className="p-4 font-semibold">{tr('vehicleNumber')}</th>
+                                            <th className="p-4 font-semibold">{tr('vehicleType')}</th>
+                                            <th className="p-4 font-semibold">{tr('ownerName')}</th>
+                                            <th className="p-4 font-semibold">{tr('ownerPhone')}</th>
+                                            <th className="p-4 font-semibold">{tr('destination')}</th>
+                                            <th className="p-4 font-semibold">{tr('capacityTons')}</th>
+                                            <th className="p-4 font-semibold">{tr('status')}</th>
+                                            <th className="p-4 font-semibold">{tr('actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -337,7 +339,7 @@ export default function VehiclesManagementPage() {
                                                                 ? 'bg-green-100 text-green-800' 
                                                                 : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                            {vehicle.status === 'active' ? 'نشطة' : 'متوقفة'}
+                                                            {vehicle.status === 'active' ? tr('active') : tr('inactive')}
                                                         </span>
                                                     </td>
                                                     <td className="p-4">
@@ -374,7 +376,7 @@ export default function VehiclesManagementPage() {
                             transition={{ delay: 0.5 }}
                         >
                             <Truck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 text-lg">لا توجد سيارات. قم بإضافة سيارة جديدة.</p>
+                            <p className="text-gray-500 text-lg">{tr('noVehicles')}</p>
                         </motion.div>
                     )}
                 </AnimatedCard>
@@ -397,13 +399,13 @@ export default function VehiclesManagementPage() {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                                {editingVehicle ? 'تعديل السيارة' : 'إضافة سيارة جديدة'}
+                                {editingVehicle ? tr('editVehicle') : tr('addNewVehicle')}
                             </h2>
                             
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">رقم السيارة</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('vehicleNumber')}</label>
                                         <input
                                             type="text"
                                             name="vehicleNumber"
@@ -411,11 +413,11 @@ export default function VehiclesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="رقم السيارة"
+                                            placeholder={tr('vehicleNumberPlaceholder')}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">نوع السيارة</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('vehicleType')}</label>
                                         <input
                                             type="text"
                                             name="vehicleType"
@@ -423,14 +425,14 @@ export default function VehiclesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="اكتب نوع السيارة"
+                                            placeholder={tr('vehicleTypePlaceholder')}
                                         />
                                     </div>
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">اسم صاحب السيارة</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('ownerName')}</label>
                                         <input
                                             type="text"
                                             name="ownerName"
@@ -438,11 +440,11 @@ export default function VehiclesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="اسم صاحب السيارة"
+                                            placeholder={tr('ownerNamePlaceholder')}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">هاتف صاحب السيارة</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('ownerPhone')}</label>
                                         <input
                                             type="tel"
                                             name="ownerPhone"
@@ -450,46 +452,46 @@ export default function VehiclesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="رقم الهاتف"
+                                            placeholder={tr('ownerPhonePlaceholder')}
                                         />
                                     </div>
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">السعة (طن)</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('capacityTons')}</label>
                                         <input
                                             type="number"
                                             name="capacity"
                                             value={formData.capacity}
                                             onChange={handleInputChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="السعة بالطن"
+                                            placeholder={tr('capacityPlaceholder')}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('status')}</label>
                                         <select
                                             name="status"
                                             value={formData.status}
                                             onChange={handleInputChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         >
-                                            <option value="active">نشطة</option>
-                                            <option value="inactive">متوقفة</option>
+                                            <option value="active">{tr('active')}</option>
+                                            <option value="inactive">{tr('inactive')}</option>
                                         </select>
                                     </div>
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('additionalNotes')}</label>
                                     <textarea
                                         name="notes"
                                         value={formData.notes}
                                         onChange={handleInputChange}
                                         rows={3}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="أي ملاحظات إضافية..."
+                                        placeholder={tr('anyAdditionalNotes')}
                                     />
                                 </div>
                                 
@@ -499,13 +501,13 @@ export default function VehiclesManagementPage() {
                                         onClick={closeModal}
                                         variant="outline"
                                     >
-                                        إلغاء
+                                        {tr('cancel')}
                                     </AnimatedButton>
                                     <AnimatedButton
                                         type="submit"
                                         variant="primary"
                                     >
-                                        {editingVehicle ? 'تحديث السيارة' : 'إضافة السيارة'}
+                                        {editingVehicle ? tr('updateVehicle') : tr('addVehicle')}
                                     </AnimatedButton>
                                 </div>
                             </form>
@@ -515,4 +517,4 @@ export default function VehiclesManagementPage() {
             </AnimatePresence>
         </div>
     );
-} 
+}

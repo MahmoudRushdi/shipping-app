@@ -10,9 +10,11 @@ import { User, DollarSign, Calendar, TrendingUp, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { useLanguage } from '../hooks/useLanguage';
 
 export default function DriverCommissionsPage() {
     const navigate = useNavigate();
+    const { tr, language } = useLanguage();
     const [drivers, setDrivers] = useState([]);
     const [trips, setTrips] = useState([]);
     const [shipments, setShipments] = useState([]);
@@ -204,11 +206,18 @@ export default function DriverCommissionsPage() {
                 totalAmount: 0,
                 paidAmount: 0,
                 pendingAmount: 0,
-                tripCount: new Set()
+                tripCount: new Set(),
+                shipmentCount: 0
             };
         }
         driverSummary[commission.driverName].totalAmount += commission.commissionAmount;
         driverSummary[commission.driverName].tripCount.add(commission.tripName);
+        
+        // Add shipment count
+        if (commission.assignedShipments && commission.assignedShipments.length > 0) {
+            driverSummary[commission.driverName].shipmentCount += commission.assignedShipments.length;
+        }
+        
         if (commission.status === 'paid') {
             driverSummary[commission.driverName].paidAmount += commission.commissionAmount;
         } else {
@@ -509,7 +518,7 @@ export default function DriverCommissionsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-7xl mx-auto"
                 variants={containerVariants}
@@ -520,22 +529,22 @@ export default function DriverCommissionsPage() {
                 <motion.div className="mb-8" variants={itemVariants}>
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-4">
-                            <AnimatedButton
-                                onClick={() => navigate('/dashboard')}
-                                variant="outline"
-                                icon={ArrowLeftIcon}
-                                size="sm"
-                            >
-                                العودة للوحة التحكم
-                            </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">أجور المناديب</h1>
+                                                    <AnimatedButton
+                            onClick={() => navigate('/dashboard')}
+                            variant="outline"
+                            icon={ArrowLeftIcon}
+                            size="sm"
+                        >
+                            {tr('backToDashboard')}
+                        </AnimatedButton>
+                        <h1 className="text-3xl font-bold gradient-text">{tr('driverCommissions')}</h1>
                         </div>
                         <AnimatedButton
                             onClick={handleExport}
                             variant="primary"
                             icon={DownloadIcon}
                         >
-                            تصدير التقرير
+                            {tr('exportReport')}
                         </AnimatedButton>
                     </div>
                 </motion.div>
@@ -548,12 +557,12 @@ export default function DriverCommissionsPage() {
                                 <User className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-blue-800 mb-2">كيفية عمل نظام العمولات</h3>
+                                <h3 className="font-semibold text-blue-800 mb-2">{tr('howCommissionsWork')}</h3>
                                 <ul className="text-sm text-blue-700 space-y-1">
-                                    <li>• <strong>حساب العمولات:</strong> يتم حساب العمولة بناءً على إجمالي مبلغ النقل المحصل من الشحنات</li>
-                                    <li>• <strong>نسبة العمولة:</strong> كل مندوب يأخذ نسبة مئوية محددة من إجمالي مبلغ النقل</li>
-                                    <li>• <strong>حالة العمولة:</strong> تظهر "معلق" حتى يتم تغييرها إلى "تم الدفع" يدوياً</li>
-                                    <li>• <strong>تحديث الحالة:</strong> يمكنك تغيير حالة العمولة باستخدام الأزرار في الجدول</li>
+                                    <li>• <strong>{tr('commissionCalculation')}:</strong> {tr('commissionCalculationDesc')}</li>
+                                    <li>• <strong>{tr('commissionPercentage')}:</strong> {tr('commissionPercentageDesc')}</li>
+                                    <li>• <strong>{tr('commissionStatus')}:</strong> {tr('commissionStatusDesc')}</li>
+                                    <li>• <strong>{tr('updateStatus')}:</strong> {tr('updateStatusDesc')}</li>
                                 </ul>
                             </div>
                         </div>
@@ -565,7 +574,7 @@ export default function DriverCommissionsPage() {
                     <AnimatedCard className="p-6" delay={0.1}>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">إجمالي الأجور</p>
+                                <p className="text-sm font-medium text-gray-600">{tr('totalCommissions')}</p>
                                 <p className="text-2xl font-bold text-gray-900">{totalCommissions.toLocaleString()} USD</p>
                             </div>
                             <DollarSign className="w-8 h-8 text-green-600" />
@@ -575,7 +584,7 @@ export default function DriverCommissionsPage() {
                     <AnimatedCard className="p-6" delay={0.2}>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">الأجور المدفوعة</p>
+                                <p className="text-sm font-medium text-gray-600">{tr('paidCommissions')}</p>
                                 <p className="text-2xl font-bold text-green-600">{paidCommissions.toLocaleString()} USD</p>
                             </div>
                             <TrendingUp className="w-8 h-8 text-green-600" />
@@ -585,7 +594,7 @@ export default function DriverCommissionsPage() {
                     <AnimatedCard className="p-6" delay={0.3}>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">الأجور المعلقة</p>
+                                <p className="text-sm font-medium text-gray-600">{tr('pendingCommissions')}</p>
                                 <p className="text-2xl font-bold text-orange-600">{pendingCommissions.toLocaleString()} USD</p>
                             </div>
                             <Calendar className="w-8 h-8 text-orange-600" />
@@ -598,13 +607,13 @@ export default function DriverCommissionsPage() {
                     <AnimatedCard className="p-4">
                         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">المندوب</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('driver')}</label>
                                 <select
                                     value={selectedDriver}
                                     onChange={(e) => setSelectedDriver(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="">جميع المناديب</option>
+                                    <option value="">{tr('allDrivers')}</option>
                                     {drivers.map(driver => (
                                         <option key={driver.id} value={driver.id}>{driver.driverName}</option>
                                     ))}
@@ -612,20 +621,20 @@ export default function DriverCommissionsPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('status')}</label>
                                 <select
                                     value={selectedStatus}
                                     onChange={(e) => setSelectedStatus(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="">جميع الحالات</option>
-                                    <option value="paid">تم الدفع</option>
-                                    <option value="pending">معلق</option>
+                                    <option value="">{tr('allStatuses')}</option>
+                                    <option value="paid">{tr('paid')}</option>
+                                    <option value="pending">{tr('pending')}</option>
                                 </select>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('fromDate')}</label>
                                 <input
                                     type="date"
                                     value={dateRange.start}
@@ -635,7 +644,7 @@ export default function DriverCommissionsPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('toDate')}</label>
                                 <input
                                     type="date"
                                     value={dateRange.end}
@@ -652,12 +661,12 @@ export default function DriverCommissionsPage() {
                                         onChange={(e) => setShowOnlyWithAmount(e.target.checked)}
                                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                     />
-                                    <span className="text-sm font-medium text-gray-700">عرض العمولات ذات المبلغ فقط</span>
+                                                                         <span className="text-sm font-medium text-gray-700">{tr('showOnlyWithAmount')}</span>
                                 </label>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ الأدنى (USD)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr('minimumAmount')}</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -675,16 +684,17 @@ export default function DriverCommissionsPage() {
                 {Object.keys(driverSummary).length > 0 && (
                     <motion.div className="mb-6" variants={itemVariants}>
                         <AnimatedCard className="p-4">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-4">ملخص المندوبين</h3>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">{tr('driverSummary')}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {Object.entries(driverSummary).map(([driverName, summary]) => (
                                     <div key={driverName} className="p-3 bg-gray-50 rounded-lg border">
                                         <h4 className="font-semibold text-gray-800 mb-2">{driverName}</h4>
                                         <div className="space-y-1 text-sm">
-                                            <p><span className="text-gray-600">عدد الرحلات:</span> {summary.tripCount.size}</p>
-                                            <p><span className="text-gray-600">إجمالي العمولات:</span> {summary.totalAmount.toLocaleString()} USD</p>
-                                            <p><span className="text-green-600">المدفوع:</span> {summary.paidAmount.toLocaleString()} USD</p>
-                                            <p><span className="text-orange-600">المعلق:</span> {summary.pendingAmount.toLocaleString()} USD</p>
+                                            <p><span className="text-gray-600">{tr('numberOfTrips')}:</span> {summary.tripCount.size}</p>
+                                            <p><span className="text-gray-600">{tr('totalCommissions')}:</span> {summary.totalAmount.toLocaleString()} USD</p>
+                                            <p><span className="text-green-600">{tr('paid')}:</span> {summary.paidAmount.toLocaleString()} USD</p>
+                                            <p><span className="text-orange-600">{tr('pending')}:</span> {summary.pendingAmount.toLocaleString()} USD</p>
+                                            <p><span className="text-blue-600">{tr('shipmentCount')}:</span> {summary.shipmentCount || 0}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -696,9 +706,9 @@ export default function DriverCommissionsPage() {
                 {/* Commissions List */}
                 <AnimatedCard className="p-6" delay={0.4}>
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-800">قائمة العمولات</h3>
+                        <h3 className="text-lg font-semibold text-gray-800">{tr('commissionsList')}</h3>
                         <span className="text-sm text-gray-600">
-                            عرض {filteredCommissions.length} من {commissions.length} عمولة
+                            {tr('showingCommissions') ? tr('showingCommissions').replace('{count}', filteredCommissions.length).replace('{total}', commissions.length) : `عرض ${filteredCommissions.length} من ${commissions.length} عمولة`}
                         </span>
                     </div>
                     {isLoading ? (
@@ -707,7 +717,7 @@ export default function DriverCommissionsPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل البيانات..."
+                                text={tr('loadingData')}
                             />
                         </div>
                     ) : (
@@ -715,15 +725,15 @@ export default function DriverCommissionsPage() {
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-gray-50">
-                                        <th className="p-3 text-right">اسم المندوب</th>
-                                        <th className="p-3 text-right">اسم الرحلة</th>
-                                        <th className="p-3 text-right">المحطة</th>
-                                        <th className="p-3 text-right">النسبة</th>
-                                        <th className="p-3 text-right">مبلغ الأجرة</th>
-                                        <th className="p-3 text-right">إجمالي مبلغ النقل</th>
-                                        <th className="p-3 text-right">الشحنات المسؤول عنها</th>
-                                        <th className="p-3 text-right">تاريخ الرحلة</th>
-                                        <th className="p-3 text-right">الحالة</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('driver')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('tripName')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('station')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('percentage')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('commissionAmount')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('totalShippingAmount')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('assignedShipments')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('tripDate')}</th>
+                                        <th className={`p-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}>{tr('status')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -734,17 +744,17 @@ export default function DriverCommissionsPage() {
                                             variants={itemVariants}
                                             onClick={() => {
                                                 const details = `
-تفاصيل العمولة:
-• المندوب: ${commission.driverName}
-• الرحلة: ${commission.tripName}
-• المحطة: ${commission.stationName}
-• النسبة: ${commission.commissionPercentage}%
-• مبلغ العمولة: ${commission.commissionAmount.toLocaleString()} USD
-• إجمالي مبلغ النقل: ${commission.totalShippingAmount.toLocaleString()} USD
-• الشحنات المسؤول عنها: ${commission.assignedShipments && commission.assignedShipments.length > 0 ? 
-    commission.assignedShipments.map(s => `\n  - ${s.name} (${s.destination}) - ${s.shippingFee}$`).join('') : 'لا يوجد'}
-• الحالة: ${commission.status === 'paid' ? 'تم الدفع' : 'معلق'}
-• التاريخ: ${commission.tripDate ? new Date(commission.tripDate.toDate()).toLocaleDateString('ar-EG') : 'N/A'}
+${tr('commissionDetails')}:
+• ${tr('driver')}: ${commission.driverName}
+• ${tr('trip')}: ${commission.tripName}
+• ${tr('station')}: ${commission.stationName}
+• ${tr('percentage')}: ${commission.commissionPercentage}%
+• ${tr('commissionAmount')}: ${commission.commissionAmount.toLocaleString()} USD
+• ${tr('totalShippingAmount')}: ${commission.totalShippingAmount.toLocaleString()} USD
+• ${tr('shipmentsResponsibleFor')}: ${commission.assignedShipments && commission.assignedShipments.length > 0 ? 
+    commission.assignedShipments.map(s => `\n  - ${s.name} (${s.destination}) - ${s.shippingFee}$`).join('') : tr('noShipments')}
+• ${tr('status')}: ${commission.status === 'paid' ? tr('paid') : tr('pending')}
+• ${tr('date')}: ${commission.tripDate ? new Date(commission.tripDate.toDate()).toLocaleDateString('en-US') : 'N/A'}
                                                 `;
                                                 
                                                 // Create a modal-like popup
@@ -752,16 +762,16 @@ export default function DriverCommissionsPage() {
                                                 popup.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
                                                 popup.innerHTML = `
                                                     <div class="bg-white rounded-lg p-6 max-w-md mx-4">
-                                                        <h3 class="text-lg font-semibold mb-4">تفاصيل العمولة</h3>
+                                                        <h3 class="text-lg font-semibold mb-4">${tr('commissionDetails')}</h3>
                                                         <pre class="text-sm text-gray-700 whitespace-pre-line">${details}</pre>
                                                         <button class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700" onclick="this.parentElement.parentElement.remove()">
-                                                            إغلاق
+                                                            ${tr('close')}
                                                         </button>
                                                     </div>
                                                 `;
                                                 document.body.appendChild(popup);
                                             }}
-                                            title="انقر لعرض تفاصيل العمولة"
+                                            title={tr('clickToViewCommissionDetails')}
                                         >
                                             <td className="p-3 font-medium">{commission.driverName}</td>
                                             <td className="p-3">{commission.tripName}</td>
@@ -780,10 +790,10 @@ export default function DriverCommissionsPage() {
                                                             <li key={shipment.id}>{shipment.name} ({shipment.destination})</li>
                                                         ))}
                                                     </ul>
-                                                ) : 'لا يوجد'}
+                                                ) : tr('noAssignedShipments')}
                                             </td>
                                             <td className="p-3 text-center">
-                                                {commission.tripDate ? new Date(commission.tripDate.toDate()).toLocaleDateString('ar-EG') : 'N/A'}
+                                                {commission.tripDate ? new Date(commission.tripDate.toDate()).toLocaleDateString('en-US') : 'N/A'}
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex items-center gap-2">
@@ -792,7 +802,7 @@ export default function DriverCommissionsPage() {
                                                             ? 'bg-green-100 text-green-800' 
                                                             : 'bg-orange-100 text-orange-800'
                                                     }`}>
-                                                        {commission.status === 'paid' ? 'تم الدفع' : 'معلق'}
+                                                        {commission.status === 'paid' ? tr('paid') : tr('pending')}
                                                     </span>
                                                     <button
                                                         onClick={() => handleUpdateCommissionStatus(
@@ -804,9 +814,9 @@ export default function DriverCommissionsPage() {
                                                                 ? 'bg-orange-500 text-white hover:bg-orange-600'
                                                                 : 'bg-green-500 text-white hover:bg-green-600'
                                                         }`}
-                                                        title={commission.status === 'paid' ? 'تغيير إلى معلق' : 'تغيير إلى تم الدفع'}
+                                                        title={commission.status === 'paid' ? tr('changeToPending') : tr('changeToPaid')}
                                                     >
-                                                        {commission.status === 'paid' ? 'إلغاء الدفع' : 'تم الدفع'}
+                                                        {commission.status === 'paid' ? tr('cancelPayment') : tr('paid')}
                                                     </button>
                                                 </div>
                                             </td>
@@ -818,12 +828,12 @@ export default function DriverCommissionsPage() {
                             {filteredCommissions.length === 0 && (
                                 <div className="text-center py-8 text-gray-500">
                                     <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                    <p>لا توجد أجور مناديب لعرضها</p>
+                                    <p>{tr('noDriverCommissionsToDisplay')}</p>
                                     <p className="text-sm mt-2">
-                                        تأكد من:
-                                        <br />• وجود رحلات مع مناديب مخصصين
-                                        <br />• وجود شحنات محصلة في الرحلات
-                                        <br />• تطبيق الفلاتر المحددة
+                                        {tr('check')}:
+                                        <br />• {tr('tripsWithAssignedDrivers')}
+                                        <br />• {tr('shipmentsCollectedInTrips')}
+                                        <br />• {tr('applyFilters')}
                                     </p>
                                 </div>
                             )}

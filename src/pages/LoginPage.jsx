@@ -1,26 +1,26 @@
 // src/pages/LoginPage.jsx
 
-import { useState, useEffect } from 'react'; // <-- Import useEffect
-import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth'; // <-- Import signOut
+import { useState, useEffect } from 'react';
+import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { GoogleIcon } from '../components/Icons';
-import logo from '../assets/AL-MOSTAKEM-1.png';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [successMessage, setSuccessMessage] = useState(''); // <-- New state for success messages
+    const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const { language, tr } = useLanguage();
 
-    // --- 1. Check for verification message on page load ---
+    // Check for verification message on page load
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('message') === 'verify-email') {
-            setSuccessMessage('تم تسجيل حسابك بنجاح! يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب قبل تسجيل الدخول.');
+            setSuccessMessage(tr('accountCreatedSuccess'));
         }
-    }, []);
-    // ---------------------------------------------------
+    }, [tr]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -41,7 +41,7 @@ export default function LoginPage() {
             // If verified, the main App.jsx logic will handle redirection.
 
         } catch (err) {
-            setError('فشل تسجيل الدخول. يرجى التحقق من البريد الإلكتروني وكلمة المرور.');
+            setError(tr('loginFailed'));
             console.error(err);
         }
         setIsLoading(false);
@@ -55,50 +55,52 @@ export default function LoginPage() {
         try {
             await signInWithPopup(auth, provider);
         } catch (err) {
-            setError('فشل تسجيل الدخول باستخدام جوجل.');
+            setError(tr('googleLoginFailed'));
             console.error(err);
         }
         setIsLoading(false);
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50" dir="rtl">
+        <div className="flex items-center justify-center min-h-screen bg-gray-50" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
                 <div className="text-center">
-                    <img src={logo} alt="شعار الشركة" className="h-20 mx-auto mb-4" />
-                    <h1 className="text-2xl font-bold text-gray-800">أهلاً بك في نظام المستقيم</h1>
-                    <p className="text-gray-500">سجل الدخول للوصول إلى لوحة التحكم</p>
+                    {/* Logo temporarily hidden
+            <img src={logo} alt={tr('companyLogo')} className="h-20 mx-auto mb-4" />
+            */}
+                    <h1 className="text-2xl font-bold text-gray-800">{tr('welcomeToSystem')}</h1>
+                    <p className="text-gray-500">{tr('loginToAccess')}</p>
                 </div>
 
-                {/* --- 3. Display success or error messages --- */}
+                {/* Display success or error messages */}
                 {error && <p className="text-red-500 bg-red-100 p-3 rounded-lg text-center">{error}</p>}
                 {successMessage && <p className="text-green-700 bg-green-100 p-3 rounded-lg text-center">{successMessage}</p>}
                 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">البريد الإلكتروني</label>
+                        <label className="block text-sm font-medium text-gray-700">{tr('email')}</label>
                         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">كلمة المرور</label>
+                        <label className="block text-sm font-medium text-gray-700">{tr('password')}</label>
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
                     <button type="submit" disabled={isLoading} className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400">
-                        {isLoading ? 'جارِ الدخول...' : 'تسجيل الدخول'}
+                        {isLoading ? tr('loggingIn') : tr('login')}
                     </button>
                 </form>
                 <div className="relative flex items-center justify-center">
                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300"></div></div>
-                    <div className="relative bg-white px-2 text-sm text-gray-500">أو</div>
+                    <div className="relative bg-white px-2 text-sm text-gray-500">{tr('or')}</div>
                 </div>
                 <button onClick={handleGoogleSignIn} disabled={isLoading} className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-200">
                     <GoogleIcon />
-                    <span>تسجيل الدخول باستخدام جوجل</span>
+                    <span>{tr('loginWithGoogle')}</span>
                 </button>
                 <p className="text-center text-sm text-gray-600">
-                    ليس لديك حساب؟{' '}
+                    {tr('noAccount')}{' '}
                     <a href="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
-                        أنشئ حساباً جديداً
+                        {tr('createNewAccount')}
                     </a>
                 </p>
             </div>

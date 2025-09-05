@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 // --- Import query and where to check for existing users ---
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage';
 
 
 // --- Updated AddUserModal to prevent duplicates ---
 function AddUserModal({ closeModal, onUserAdded }) {
+  const { tr } = useLanguage();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('employee');
   const [error, setError] = useState('');
@@ -14,7 +16,7 @@ function AddUserModal({ closeModal, onUserAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
-      setError('يرجى إدخال البريد الإلكتروني.');
+      setError(tr('pleaseEnterEmail'));
       return;
     }
     setIsSubmitting(true);
@@ -28,19 +30,19 @@ function AddUserModal({ closeModal, onUserAdded }) {
 
         if (!querySnapshot.empty) {
             // If the query is not empty, a user with this email exists
-            setError("هذا البريد الإلكتروني مسجل بالفعل.");
+            setError(tr('emailAlreadyRegistered'));
             setIsSubmitting(false);
             return;
         }
         // If we get here, the email is unique, so we can add it
         await addDoc(usersRef, { email, role });
       
-        onUserAdded(`تمت إضافة المستخدم ${email} بنجاح.`);
+        onUserAdded(`${tr('userAddedSuccess')} ${email}`);
         closeModal();
 
     } catch (err) {
       console.error("Error adding user: ", err);
-      setError('حدث خطأ أثناء إضافة المستخدم.');
+      setError(tr('errorAddingUser'));
     }
     setIsSubmitting(false);
   };
@@ -48,11 +50,11 @@ function AddUserModal({ closeModal, onUserAdded }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md m-4">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">إضافة موظف جديد</h2>
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">{tr('addNewEmployee')}</h2>
         {error && <p className="text-red-500 bg-red-100 p-3 rounded-lg text-center mb-4">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">البريد الإلكتروني للموظف</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">{tr('employeeEmail')}</label>
             <input
               id="email"
               type="email"
@@ -63,22 +65,22 @@ function AddUserModal({ closeModal, onUserAdded }) {
             />
           </div>
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">الصلاحية</label>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">{tr('role')}</label>
             <select
               id="role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
               className="p-2 border rounded-md w-full bg-white"
             >
-              <option value="customer">زبون (Customer)</option>
-              <option value="employee">موظف (Employee)</option>
-              <option value="admin">مدير (Admin)</option>
+              <option value="customer">{tr('customer')}</option>
+              <option value="employee">{tr('employee')}</option>
+              <option value="admin">{tr('admin')}</option>
             </select>
           </div>
           <div className="flex justify-end gap-4 pt-4">
-            <button type="button" onClick={closeModal} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">إلغاء</button>
+            <button type="button" onClick={closeModal} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">{tr('cancel')}</button>
             <button type="submit" disabled={isSubmitting} className="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 font-semibold">
-              {isSubmitting ? 'جاري الإضافة...' : 'إضافة'}
+              {isSubmitting ? `${tr('adding')}...` : tr('add')}
             </button>
           </div>
         </form>
@@ -90,6 +92,7 @@ function AddUserModal({ closeModal, onUserAdded }) {
 
 // --- Main AdminPage component (no major changes needed here, but included for completeness) ---
 export default function AdminPage() {
+  const { language, tr } = useLanguage();
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,34 +127,34 @@ export default function AdminPage() {
         await updateDoc(userRef, {
             role: newRole
         });
-        setSuccessMessage('تم تحديث الصلاحية بنجاح.');
+        setSuccessMessage(tr('roleUpdatedSuccess'));
         setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
         console.error("Error updating role: ", error);
-        alert("حدث خطأ أثناء تحديث الصلاحية.");
+        alert(tr('errorUpdatingRole'));
     }
   };
 
    const handleDeleteUser = async (userId) => {
-    if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا المستخدم؟ هذا الإجراء لا يمكن التراجع عنه.")) {
+    if (window.confirm(tr('confirmDeleteUser'))) {
         try {
             await deleteDoc(doc(db, 'users', userId));
-            setSuccessMessage('تم حذف المستخدم بنجاح.');
+            setSuccessMessage(tr('userDeletedSuccess'));
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
              console.error("Error deleting user: ", error);
-             alert("حدث خطأ أثناء حذف المستخدم.");
+             alert(tr('errorDeletingUser'));
         }
     }
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-8 font-sans" dir="rtl">
+    <div className="bg-gray-50 min-h-screen p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">إدارة المستخدمين</h1>
+          <h1 className="text-3xl font-bold text-gray-800">{tr('manageUsers')}</h1>
           <a href="/dashboard" className="text-sm text-indigo-600 hover:underline">
-            → العودة إلى لوحة التحكم
+            {tr('backToDashboard')}
           </a>
         </div>
         
@@ -159,22 +162,22 @@ export default function AdminPage() {
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">قائمة المستخدمين</h2>
+            <h2 className="text-xl font-semibold">{tr('usersList')}</h2>
             <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700">
-              إضافة مستخدم جديد
+              {tr('addNewUser')}
             </button>
           </div>
           
           <div className="overflow-x-auto">
             {isLoading ? (
-              <div className="p-10 text-center text-gray-400">جاري تحميل المستخدمين...</div>
+              <div className="p-10 text-center text-gray-400">{tr('loadingUsers')}</div>
             ) : (
               <table className="w-full text-sm text-right">
                 <thead className="bg-gray-100 text-gray-600">
                   <tr>
-                    <th className="p-3">البريد الإلكتروني</th>
-                    <th className="p-3">الصلاحية</th>
-                    <th className="p-3">إجراءات</th>
+                    <th className="p-3">{tr('email')}</th>
+                    <th className="p-3">{tr('role')}</th>
+                    <th className="p-3">{tr('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,7 +187,7 @@ export default function AdminPage() {
                       <td className="p-3 w-48">
                         {auth.currentUser?.uid === user.id ? (
                              <span className={`px-2 py-1 text-xs rounded-full font-semibold ${user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                                {user.role === 'admin' ? 'مدير (أنت)' : user.role}
+                                {user.role === 'admin' ? tr('adminYou') : user.role}
                             </span>
                         ) : (
                             <select 
@@ -196,15 +199,15 @@ export default function AdminPage() {
                                     'bg-gray-100 text-gray-800'
                                 }`}
                             >
-                                <option value="customer">زبون</option>
-                                <option value="employee">موظف</option>
-                                <option value="admin">مدير</option>
+                                <option value="customer">{tr('customer')}</option>
+                                <option value="employee">{tr('employee')}</option>
+                                <option value="admin">{tr('admin')}</option>
                             </select>
                         )}
                       </td>
                       <td className="p-3">
                          {auth.currentUser?.uid !== user.id && (
-                             <button onClick={() => handleDeleteUser(user.id)} className="text-red-500 hover:text-red-700 text-xs">حذف</button>
+                             <button onClick={() => handleDeleteUser(user.id)} className="text-red-500 hover:text-red-700 text-xs">{tr('delete')}</button>
                          )}
                       </td>
                     </tr>

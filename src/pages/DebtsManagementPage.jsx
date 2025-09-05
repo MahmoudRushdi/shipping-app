@@ -1,828 +1,360 @@
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { ArrowLeftIcon, PlusIcon, DownloadIcon, UserCheck, UserX } from '../components/Icons';
+import { useLanguage } from '../hooks/useLanguage';
+import { motion } from 'framer-motion';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
-import AnimatedLoader from '../components/AnimatedLoader';
-import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Users, Receipt, Plus, ArrowLeft, Home } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-export default function DebtsManagementPage() {
-    const navigate = useNavigate();
-    const [customers, setCustomers] = useState([]);
-    const [transactions, setTransactions] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isAddingDebt, setIsAddingDebt] = useState(false);
-    const [isAddingPayment, setIsAddingPayment] = useState(false);
+// Function to generate automatic reference number
+const generateReferenceNumber = async () => {
+  try {
+    const counterRef = doc(db, 'counters', 'transaction_counter');
     
-    // Filters
-    const [selectedCustomerType, setSelectedCustomerType] = useState('both');
-    const [selectedBalanceType, setSelectedBalanceType] = useState('');
-    const [minAmount, setMinAmount] = useState(0);
+    const newCounter = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists()) {
+        // Create counter for the first time
+        transaction.set(counterRef, { count: 1 });
+        return 1;
+      } else {
+        // Increment counter
+        const newCount = counterDoc.data().count + 1;
+        transaction.update(counterRef, { count: newCount });
+        return newCount;
+      }
+    });
     
-    // New debt form
-    const [newDebt, setNewDebt] = useState({
-        customerId: '',
-        customerName: '',
-        customerType: 'both', // both = مرسل ومستلم، sender = مرسل فقط، recipient = مستلم فقط
-        debtType: 'debt', // debt = عليه دين، credit = له دين
-        amount: '',
-        currency: 'USD',
-        description: '',
-        dueDate: '',
-        notes: ''
-    });
+    // Return formatted reference number
+    return `SH-${newCounter.toString().padStart(5, '0')}`;
+  } catch (error) {
+    console.error('Error generating reference number:', error);
+    // Fallback reference number
+    return `SH-${Date.now().toString().slice(-5)}`;
+  }
+};
 
-    // New payment form
-    const [newPayment, setNewPayment] = useState({
-        customerId: '',
-        customerName: '',
-        amount: '',
-        currency: 'USD',
-        paymentMethod: '',
-        description: '',
-        notes: ''
-    });
+function AddDebtModal({ isOpen, onClose, customer, onAdded }) {
+  const { tr } = useLanguage();
+  const [form, setForm] = useState({ type: 'debt', amount: '', currency: 'USD', description: '' });
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        setIsLoading(true);
-        
-        // Fetch customers
-        const customersCollection = collection(db, 'customer_accounts');
-        const customersQuery = query(customersCollection, orderBy('customerName'));
-        const customersUnsubscribe = onSnapshot(customersQuery, (snapshot) => {
-            const customersData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setCustomers(customersData);
-        });
+  useEffect(() => {
+    if (isOpen) {
+      setForm({ type: 'debt', amount: '', currency: 'USD', description: '' });
+    }
+  }, [isOpen]);
 
-        // Fetch transactions
-        const transactionsCollection = collection(db, 'financial_transactions');
-        const transactionsQuery = query(transactionsCollection, orderBy('createdAt', 'desc'));
-        const transactionsUnsubscribe = onSnapshot(transactionsQuery, (snapshot) => {
-            const transactionsData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setTransactions(transactionsData);
-            setIsLoading(false);
-        });
+  if (!isOpen || !customer) return null;
 
-        return () => {
-            customersUnsubscribe();
-            transactionsUnsubscribe();
-        };
-    }, []);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.amount) return;
+    setLoading(true);
+    try {
+      // Generate reference number
+      const referenceNumber = await generateReferenceNumber();
+      
+      await addDoc(collection(db, 'financial_transactions'), {
+        type: form.type, // debt: دين على العميل, payment: دفع من العميل
+        amount: parseFloat(form.amount),
+        currency: form.currency,
+        description: form.description,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+        reference: referenceNumber,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        customerRole: customer.type || '',
+        createdAt: serverTimestamp(),
+        status: 'completed'
+      });
+      onAdded?.();
+      onClose();
+    } catch (err) {
+      console.error('Error adding debt transaction:', err);
+      alert(tr('errorAddingTransaction') || 'حدث خطأ عند إضافة العملية');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Calculate customer balances from transactions
-    const customersWithBalances = customers.map(customer => {
-        const customerTransactions = transactions.filter(t => 
-            t.customerId === customer.id || t.customerName === customer.customerName
-        );
-
-        let balance = 0;
-        customerTransactions.forEach(transaction => {
-            if (transaction.type === 'income') {
-                balance += parseFloat(transaction.amount) || 0;
-            } else if (transaction.type === 'expense') {
-                balance -= parseFloat(transaction.amount) || 0;
-            }
-        });
-
-        return {
-            ...customer,
-            balance: balance,
-            totalDebt: balance < 0 ? Math.abs(balance) : 0,
-            totalCredit: balance > 0 ? balance : 0,
-            lastTransaction: customerTransactions.length > 0 ? customerTransactions[0].createdAt : null
-        };
-    });
-
-    // Filter customers
-    const filteredCustomers = customersWithBalances.filter(customer => {
-        const matchesType = !selectedCustomerType || customer.customerType === selectedCustomerType;
-        const matchesBalance = !selectedBalanceType || 
-            (selectedBalanceType === 'debt' && customer.balance < 0) ||
-            (selectedBalanceType === 'credit' && customer.balance > 0) ||
-            (selectedBalanceType === 'zero' && customer.balance === 0);
-        const matchesAmount = Math.abs(customer.balance) >= minAmount;
-        
-        return matchesType && matchesBalance && matchesAmount;
-    });
-
-    // Calculate statistics
-    const totalDebts = filteredCustomers
-        .filter(c => c.balance < 0)
-        .reduce((sum, c) => sum + Math.abs(c.balance), 0);
-    
-    const totalCredits = filteredCustomers
-        .filter(c => c.balance > 0)
-        .reduce((sum, c) => sum + c.balance, 0);
-    
-    const netBalance = totalCredits - totalDebts;
-
-    const handleAddDebt = async (e) => {
-        e.preventDefault();
-        
-        if (!newDebt.customerId || !newDebt.amount || !newDebt.description) {
-            alert('يرجى إدخال العميل والمبلغ والوصف');
-            return;
-        }
-
-        setIsAddingDebt(true);
-
-        try {
-            const debtData = {
-                ...newDebt,
-                amount: parseFloat(newDebt.amount),
-                date: new Date().toISOString().split('T')[0],
-                type: newDebt.debtType === 'debt' ? 'expense' : 'income',
-                status: 'completed',
-                createdBy: 'current_user_id', // TODO: Get from auth
-                createdAt: serverTimestamp()
-            };
-
-            await addDoc(collection(db, 'financial_transactions'), debtData);
-
-            // Reset form
-            setNewDebt({
-                customerId: '',
-                customerName: '',
-                customerType: '',
-                debtType: 'debt',
-                amount: '',
-                currency: 'USD',
-                description: '',
-                dueDate: '',
-                notes: ''
-            });
-
-            alert('تم إضافة الدين بنجاح!');
-        } catch (error) {
-            console.error('Error adding debt:', error);
-            alert('حدث خطأ أثناء إضافة الدين');
-        }
-
-        setIsAddingDebt(false);
-    };
-
-    const handleAddPayment = async (e) => {
-        e.preventDefault();
-        
-        if (!newPayment.customerId || !newPayment.amount || !newPayment.description) {
-            alert('يرجى إدخال العميل والمبلغ والوصف');
-            return;
-        }
-
-        setIsAddingPayment(true);
-
-        try {
-            const paymentData = {
-                ...newPayment,
-                amount: parseFloat(newPayment.amount),
-                date: new Date().toISOString().split('T')[0],
-                type: 'income', // Payment is always income
-                status: 'completed',
-                createdBy: 'current_user_id', // TODO: Get from auth
-                createdAt: serverTimestamp()
-            };
-
-            await addDoc(collection(db, 'financial_transactions'), paymentData);
-
-            // Reset form
-            setNewPayment({
-                customerId: '',
-                customerName: '',
-                amount: '',
-                currency: 'USD',
-                paymentMethod: '',
-                description: '',
-                notes: ''
-            });
-
-            alert('تم تسجيل الدفعة بنجاح!');
-        } catch (error) {
-            console.error('Error adding payment:', error);
-            alert('حدث خطأ أثناء تسجيل الدفعة');
-        }
-
-        setIsAddingPayment(false);
-    };
-
-    const handleExport = async () => {
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('إدارة الديون');
-
-        // Define columns
-        sheet.columns = [
-            { header: 'اسم العميل', key: 'customerName', width: 25 },
-            { header: 'نوع العميل', key: 'customerType', width: 15 },
-            { header: 'رصيد الحساب', key: 'balance', width: 20 },
-            { header: 'إجمالي الدين عليه', key: 'totalDebt', width: 20 },
-            { header: 'إجمالي ما له', key: 'totalCredit', width: 20 },
-            { header: 'آخر عملية', key: 'lastTransaction', width: 20 },
-            { header: 'الحالة', key: 'status', width: 15 }
-        ];
-
-        // Add header
-        const headerRow = sheet.addRow([
-            'اسم العميل', 'نوع العميل', 'رصيد الحساب', 'إجمالي الدين عليه', 
-            'إجمالي ما له', 'آخر عملية', 'الحالة'
-        ]);
-
-        // Style header
-        headerRow.eachCell((cell) => {
-            cell.style = {
-                font: { bold: true, color: { argb: 'FFFFFFFF' } },
-                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } },
-                alignment: { horizontal: 'center', vertical: 'middle' }
-            };
-        });
-
-        // Add data
-        filteredCustomers.forEach(customer => {
-            const row = sheet.addRow([
-                customer.customerName,
-                customer.customerType === 'sender' ? 'مرسل فقط' : 
-                customer.customerType === 'receiver' ? 'مستلم فقط' : 'مرسل ومستلم',
-                customer.balance,
-                customer.totalDebt,
-                customer.totalCredit,
-                customer.lastTransaction ? new Date(customer.lastTransaction.toDate()).toLocaleDateString('ar-EG') : 'N/A',
-                customer.balance < 0 ? 'عليه دين' : customer.balance > 0 ? 'له دين' : 'متوازن'
-            ]);
-
-            // Style data rows
-            row.eachCell((cell, colNumber) => {
-                cell.style = {
-                    alignment: { horizontal: 'center', vertical: 'middle' }
-                };
-                
-                // Color balance column
-                if (colNumber === 3) {
-                    if (customer.balance < 0) {
-                        cell.style.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } };
-                    } else if (customer.balance > 0) {
-                        cell.style.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E8' } };
-                    }
-                }
-            });
-        });
-
-        // Save file
-        const buffer = await workbook.xlsx.writeBuffer();
-        saveAs(new Blob([buffer]), `إدارة_الديون_${new Date().toISOString().split('T')[0]}.xlsx`);
-    };
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 }
-    };
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
-            <motion.div 
-                className="max-w-7xl mx-auto"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-            >
-                {/* Header */}
-                <motion.div className="mb-8" variants={itemVariants}>
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <AnimatedButton
-                                onClick={() => navigate('/dashboard')}
-                                variant="outline"
-                                icon={ArrowLeftIcon}
-                                size="sm"
-                            >
-                                العودة للوحة التحكم
-                            </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إدارة الديون</h1>
-                        </div>
-                        <div className="flex gap-3">
-                            <AnimatedButton
-                                onClick={() => setIsAddingDebt(true)}
-                                variant="primary"
-                                icon={PlusIcon}
-                            >
-                                إضافة دين جديد
-                            </AnimatedButton>
-                            <AnimatedButton
-                                onClick={() => setIsAddingPayment(true)}
-                                variant="outline"
-                                icon={UserCheck}
-                            >
-                                تسديد دين
-                            </AnimatedButton>
-                            <AnimatedButton
-                                onClick={handleExport}
-                                variant="outline"
-                                icon={DownloadIcon}
-                            >
-                                تصدير التقرير
-                            </AnimatedButton>
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* Statistics Cards */}
-                <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" variants={itemVariants}>
-                    <AnimatedCard className="p-6" delay={0.1}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">صافي الرصيد</p>
-                                <p className={`text-2xl font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {netBalance.toLocaleString()} USD
-                                </p>
-                            </div>
-                            <DollarSign className="w-8 h-8 text-blue-600" />
-                        </div>
-                    </AnimatedCard>
-
-                    <AnimatedCard className="p-6" delay={0.2}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">إجمالي الديون</p>
-                                <p className="text-2xl font-bold text-red-600">{totalDebts.toLocaleString()} USD</p>
-                            </div>
-                            <UserX className="w-8 h-8 text-red-600" />
-                        </div>
-                    </AnimatedCard>
-
-                    <AnimatedCard className="p-6" delay={0.3}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">إجمالي ما للعملاء</p>
-                                <p className="text-2xl font-bold text-green-600">{totalCredits.toLocaleString()} USD</p>
-                            </div>
-                            <UserCheck className="w-8 h-8 text-green-600" />
-                        </div>
-                    </AnimatedCard>
-
-                    <AnimatedCard className="p-6" delay={0.4}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">عدد العملاء</p>
-                                <p className="text-2xl font-bold text-gray-900">{filteredCustomers.length}</p>
-                            </div>
-                            <Users className="w-8 h-8 text-gray-600" />
-                        </div>
-                    </AnimatedCard>
-                </motion.div>
-
-                {/* Filters */}
-                <motion.div className="mb-6" variants={itemVariants}>
-                    <AnimatedCard className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">نوع العميل</label>
-                                <select
-                                    value={selectedCustomerType}
-                                    onChange={(e) => setSelectedCustomerType(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option value="both">جميع الأنواع</option>
-                                    <option value="sender">مرسل فقط</option>
-                                    <option value="receiver">مستلم فقط</option>
-                                    <option value="both">مرسل ومستلم</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">حالة الحساب</label>
-                                <select
-                                    value={selectedBalanceType}
-                                    onChange={(e) => setSelectedBalanceType(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option value="">جميع الحالات</option>
-                                    <option value="debt">عليه دين</option>
-                                    <option value="credit">له دين</option>
-                                    <option value="zero">متوازن</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ الأدنى</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={minAmount}
-                                    onChange={(e) => setMinAmount(parseFloat(e.target.value) || 0)}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="0"
-                                />
-                            </div>
-
-                            <div className="flex items-end">
-                                <AnimatedButton
-                                    onClick={() => {
-                                        setSelectedCustomerType('both');
-                                        setSelectedBalanceType('');
-                                        setMinAmount(0);
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    إعادة تعيين الفلاتر
-                                </AnimatedButton>
-                            </div>
-                        </div>
-                    </AnimatedCard>
-                </motion.div>
-
-                {/* Customers List */}
-                <AnimatedCard className="p-6" delay={0.5}>
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-800">قائمة حسابات العملاء</h3>
-                        <span className="text-sm text-gray-600">
-                            عرض {filteredCustomers.length} من {customers.length} عميل
-                        </span>
-                    </div>
-                    
-                    {isLoading ? (
-                        <div className="p-20 text-center">
-                            <AnimatedLoader 
-                                type="ring" 
-                                size="xl" 
-                                color="indigo" 
-                                text="جاري تحميل البيانات..."
-                            />
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50">
-                                        <th className="p-3 text-right">اسم العميل</th>
-                                        <th className="p-3 text-right">نوع العميل</th>
-                                        <th className="p-3 text-right">رصيد الحساب</th>
-                                        <th className="p-3 text-right">إجمالي الدين عليه</th>
-                                        <th className="p-3 text-right">إجمالي ما له</th>
-                                        <th className="p-3 text-right">آخر عملية</th>
-                                        <th className="p-3 text-right">الحالة</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredCustomers.map((customer) => (
-                                        <motion.tr 
-                                            key={customer.id}
-                                            className="border-b hover:bg-gray-50 transition-colors"
-                                            variants={itemVariants}
-                                        >
-                                            <td className="p-3 font-medium">{customer.customerName}</td>
-                                            <td className="p-3 text-center">
-                                                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                                                    customer.customerType === 'sender' 
-                                                        ? 'bg-blue-100 text-blue-800' 
-                                                        : customer.customerType === 'receiver'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-purple-100 text-purple-800'
-                                                }`}>
-                                                    {customer.customerType === 'sender' ? 'مرسل فقط' : 
-                                                     customer.customerType === 'receiver' ? 'مستلم فقط' : 'مرسل ومستلم'}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-center font-medium">
-                                                <span className={`${customer.balance < 0 ? 'text-red-600' : customer.balance > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                                                    {customer.balance.toLocaleString()} USD
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-center text-red-600">
-                                                {customer.totalDebt.toLocaleString()} USD
-                                            </td>
-                                            <td className="p-3 text-center text-green-600">
-                                                {customer.totalCredit.toLocaleString()} USD
-                                            </td>
-                                            <td className="p-3 text-center text-sm text-gray-600">
-                                                {customer.lastTransaction ? 
-                                                    new Date(customer.lastTransaction.toDate()).toLocaleDateString('ar-EG') : 'N/A'}
-                                            </td>
-                                            <td className="p-3 text-center">
-                                                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                                                    customer.balance < 0 
-                                                        ? 'bg-red-100 text-red-800' 
-                                                        : customer.balance > 0 
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {customer.balance < 0 ? 'عليه دين' : 
-                                                     customer.balance > 0 ? 'له دين' : 'متوازن'}
-                                                </span>
-                                            </td>
-                                        </motion.tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            
-                            {filteredCustomers.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                    <p>لا توجد عملاء لعرضهم</p>
-                                    <p className="text-sm mt-2">
-                                        تأكد من:
-                                        <br />• وجود عملاء مسجلين
-                                        <br />• تطبيق الفلاتر المحددة
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </AnimatedCard>
-            </motion.div>
-
-            {/* Add Debt Modal */}
-            {isAddingDebt && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-lg font-semibold mb-4">إضافة دين جديد</h3>
-                        
-                        <form onSubmit={handleAddDebt} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        العميل <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={newDebt.customerId}
-                                        onChange={(e) => {
-                                            const customer = customers.find(c => c.id === e.target.value);
-                                            setNewDebt(prev => ({ 
-                                                ...prev, 
-                                                customerId: e.target.value,
-                                                customerName: customer ? customer.customerName : '',
-                                                customerType: customer ? customer.customerType : ''
-                                            }));
-                                        }}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">اختر العميل</option>
-                                        {customers.map(customer => (
-                                            <option key={customer.id} value={customer.id}>
-                                                {customer.customerName} ({customer.customerType === 'sender' ? 'مرسل فقط' : 
-                                                                       customer.customerType === 'receiver' ? 'مستلم فقط' : 'مرسل ومستلم'})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        نوع الدين <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={newDebt.debtType}
-                                        onChange={(e) => setNewDebt(prev => ({ ...prev, debtType: e.target.value }))}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="debt">عليه دين (مدين)</option>
-                                        <option value="credit">له دين (دائن)</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        المبلغ <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={newDebt.amount}
-                                        onChange={(e) => setNewDebt(prev => ({ ...prev, amount: e.target.value }))}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        العملة
-                                    </label>
-                                    <select
-                                        value={newDebt.currency}
-                                        onChange={(e) => setNewDebt(prev => ({ ...prev, currency: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="USD">USD</option>
-                                        <option value="TRY">TRY</option>
-                                        <option value="SYP">SYP</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    الوصف <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newDebt.description}
-                                    onChange={(e) => setNewDebt(prev => ({ ...prev, description: e.target.value }))}
-                                    required
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="وصف الدين"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        تاريخ الاستحقاق
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={newDebt.dueDate}
-                                        onChange={(e) => setNewDebt(prev => ({ ...prev, dueDate: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        ملاحظات
-                                    </label>
-                                    <textarea
-                                        value={newDebt.notes}
-                                        onChange={(e) => setNewDebt(prev => ({ ...prev, notes: e.target.value }))}
-                                        rows="3"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="ملاحظات إضافية..."
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-4 pt-6 border-t">
-                                <AnimatedButton
-                                    type="button"
-                                    onClick={() => setIsAddingDebt(false)}
-                                    variant="outline"
-                                >
-                                    إلغاء
-                                </AnimatedButton>
-                                <AnimatedButton
-                                    type="submit"
-                                    variant="primary"
-                                    disabled={isAddingDebt}
-                                >
-                                    {isAddingDebt ? 'جاري الإضافة...' : 'إضافة الدين'}
-                                </AnimatedButton>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Add Payment Modal */}
-            {isAddingPayment && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-lg font-semibold mb-4">تسديد دين</h3>
-                        
-                        <form onSubmit={handleAddPayment} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        العميل <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={newPayment.customerId}
-                                        onChange={(e) => {
-                                            const customer = customers.find(c => c.id === e.target.value);
-                                            setNewPayment(prev => ({ 
-                                                ...prev, 
-                                                customerId: e.target.value,
-                                                customerName: customer ? customer.customerName : ''
-                                            }));
-                                        }}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">اختر العميل</option>
-                                        {customers.map(customer => (
-                                            <option key={customer.id} value={customer.id}>
-                                                {customer.customerName} ({customer.customerType === 'sender' ? 'مرسل فقط' : 
-                                                                       customer.customerType === 'receiver' ? 'مستلم فقط' : 'مرسل ومستلم'})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        المبلغ المسدد <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={newPayment.amount}
-                                        onChange={(e) => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
-                                        required
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        العملة
-                                    </label>
-                                    <select
-                                        value={newPayment.currency}
-                                        onChange={(e) => setNewPayment(prev => ({ ...prev, currency: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="USD">USD</option>
-                                        <option value="TRY">TRY</option>
-                                        <option value="SYP">SYP</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        طريقة الدفع
-                                    </label>
-                                    <select
-                                        value={newPayment.paymentMethod}
-                                        onChange={(e) => setNewPayment(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">اختر طريقة الدفع</option>
-                                        <option value="cash">نقداً</option>
-                                        <option value="bank">تحويل بنكي</option>
-                                        <option value="check">شيك</option>
-                                        <option value="other">أخرى</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    الوصف <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newPayment.description}
-                                    onChange={(e) => setNewPayment(prev => ({ ...prev, description: e.target.value }))}
-                                    required
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="وصف الدفعة"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    ملاحظات
-                                </label>
-                                <textarea
-                                    value={newPayment.notes}
-                                    onChange={(e) => setNewPayment(prev => ({ ...prev, notes: e.target.value }))}
-                                    rows="3"
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="ملاحظات إضافية..."
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-4 pt-6 border-t">
-                                <AnimatedButton
-                                    type="button"
-                                    onClick={() => setIsAddingPayment(false)}
-                                    variant="outline"
-                                >
-                                    إلغاء
-                                </AnimatedButton>
-                                <AnimatedButton
-                                    type="submit"
-                                    variant="primary"
-                                    disabled={isAddingPayment}
-                                >
-                                    {isAddingPayment ? 'جاري التسجيل...' : 'تسجيل الدفعة'}
-                                </AnimatedButton>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+        <h3 className="text-xl font-bold mb-4">{tr('addTransaction') || 'إضافة عملية'}</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('transactionType') || 'نوع العملية'}</label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input 
+                  type="radio" 
+                  name="type" 
+                  value="debt" 
+                  checked={form.type === 'debt'}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="mr-3"
+                />
+                <span className="text-red-600 font-medium">{tr('addDebt') || 'تسجيل دين'}</span>
+              </label>
+              <label className="flex items-center">
+                <input 
+                  type="radio" 
+                  name="type" 
+                  value="payment" 
+                  checked={form.type === 'payment'}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="mr-3"
+                />
+                <span className="text-green-600 font-medium">{tr('addPayment') || 'تسجيل دفع'}</span>
+              </label>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{tr('amount') || 'المبلغ'}</label>
+              <input className="w-full p-2 border rounded-md" type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{tr('currency') || 'العملة'}</label>
+              <select className="w-full p-2 border rounded-md" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                <option value="USD">USD</option>
+                <option value="TRY">TRY</option>
+                <option value="SYP">SYP</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('description') || 'الوصف'}</label>
+            <input className="w-full p-2 border rounded-md" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={form.type === 'debt' ? 'سبب الدين...' : 'تفاصيل الدفع...'} />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md">{tr('cancel') || 'إلغاء'}</button>
+            <button type="submit" disabled={loading} className={`px-4 py-2 text-white rounded-md ${form.type === 'debt' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+              {loading ? (tr('saving') || 'حفظ...') : (form.type === 'debt' ? (tr('addDebt') || 'تسجيل دين') : (tr('addPayment') || 'تسجيل دفع'))}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
+
+export default function DebtsManagementPage() {
+  const { tr } = useLanguage();
+  const navigate = useNavigate();
+  const [customers, setCustomers] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [search, setSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [ledgerFilter, setLedgerFilter] = useState({ type: '', dateFrom: '', dateTo: '' });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubCustomers = onSnapshot(collection(db, 'customers'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setCustomers(list);
+    });
+    const unsubTx = onSnapshot(collection(db, 'financial_transactions'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setTransactions(list);
+    });
+    return () => { unsubCustomers(); unsubTx(); };
+  }, []);
+
+  const rows = useMemo(() => {
+    const byCustomerId = new Map();
+    customers.forEach(c => {
+      byCustomerId.set(c.id, { customer: c, totalDebt: 0, totalPaid: 0 });
+    });
+    transactions.forEach(t => {
+      const matchById = t.customerId && byCustomerId.get(t.customerId);
+      const entry = matchById || null;
+      if (entry) {
+        if (t.type === 'debt') entry.totalDebt += t.amount || 0;
+        if (t.type === 'payment') entry.totalPaid += t.amount || 0;
+      }
+    });
+    const result = Array.from(byCustomerId.values()).map(r => ({
+      ...r,
+      balance: r.totalDebt - r.totalPaid
+    }));
+    const filtered = result.filter(r => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (r.customer.name || '').toLowerCase().includes(q) || (r.customer.phone || '').includes(q);
+    });
+    return filtered.sort((a, b) => (b.balance - a.balance));
+  }, [customers, transactions, search]);
+
+  const customerLedger = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return transactions
+      .filter(t => t.customerId === selectedCustomer.id)
+      .filter(t => !ledgerFilter.type || t.type === ledgerFilter.type)
+      .filter(t => !ledgerFilter.dateFrom || (t.date || '').localeCompare(ledgerFilter.dateFrom) >= 0)
+      .filter(t => !ledgerFilter.dateTo || (t.date || '').localeCompare(ledgerFilter.dateTo) <= 0)
+      .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+  }, [transactions, selectedCustomer, ledgerFilter]);
+
+  const exportLedger = async () => {
+    if (!selectedCustomer) return;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Ledger');
+    ws.columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Time', key: 'time', width: 10 },
+      { header: 'Reference', key: 'reference', width: 16 },
+      { header: 'Type', key: 'type', width: 12 },
+      { header: 'Amount', key: 'amount', width: 14 },
+      { header: 'Currency', key: 'currency', width: 10 },
+      { header: 'Description', key: 'description', width: 40 }
+    ];
+    customerLedger.forEach(t => ws.addRow({
+      date: t.date,
+      time: t.time,
+      reference: t.reference || '',
+      type: t.type === 'debt' ? 'تسجيل دين' : 'تسجيل دفع',
+      amount: t.amount,
+      currency: t.currency,
+      description: t.description
+    }));
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `ledger_${selectedCustomer.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
+  const itemVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+      <motion.div className="max-w-6xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
+        <motion.div className="mb-6 flex items-center justify-between" variants={itemVariants}>
+          <div className="flex items-center gap-3">
+            <Users className="w-6 h-6 text-indigo-600" />
+            <h1 className="text-2xl font-bold">{tr('debtsManagement') || 'إدارة الديون'}</h1>
+          </div>
+          <div className="flex gap-3">
+            <AnimatedButton variant="outline" onClick={() => navigate('/dashboard')} icon={Home}>{tr('dashboard') || 'الداشبورد'}</AnimatedButton>
+            <AnimatedButton variant="outline" onClick={() => navigate('/daily-journal')} icon={Receipt}>{tr('dailyJournal') || 'دفتر اليومية'}</AnimatedButton>
+          </div>
+        </motion.div>
+
+        <AnimatedCard className="p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <input className="w-full px-3 py-2 border rounded-md" placeholder={tr('searchCustomers') || 'ابحث عن عميل...'} value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+        </AnimatedCard>
+
+        <AnimatedCard className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full table-fixed">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="w-1/6 p-4 text-right font-semibold text-gray-700 border-b">{tr('customerName') || 'اسم العميل'}</th>
+                  <th className="w-1/6 p-4 text-right font-semibold text-gray-700 border-b">{tr('phone') || 'الهاتف'}</th>
+                  <th className="w-1/6 p-4 text-right font-semibold text-gray-700 border-b">{tr('totalDebt') || 'إجمالي الديون'}</th>
+                  <th className="w-1/6 p-4 text-right font-semibold text-gray-700 border-b">{tr('totalPaid') || 'المدفوع'}</th>
+                  <th className="w-1/6 p-4 text-right font-semibold text-gray-700 border-b">{tr('balance') || 'الرصيد'}</th>
+                  <th className="w-1/6 p-4 text-right font-semibold text-gray-700 border-b">{tr('actions') || 'إجراءات'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.customer.id} className="border-b hover:bg-gray-50 transition-colors">
+                    <td className="p-4 text-right font-medium text-gray-900">{r.customer.name}</td>
+                    <td className="p-4 text-right text-gray-600">{r.customer.phone}</td>
+                    <td className="p-4 text-right text-red-600 font-medium">{r.totalDebt.toLocaleString()} USD</td>
+                    <td className="p-4 text-right text-green-600 font-medium">{r.totalPaid.toLocaleString()} USD</td>
+                    <td className={`p-4 text-right font-bold ${r.balance < 0 ? 'text-red-600' : r.balance > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                      {r.balance.toLocaleString()} USD
+                    </td>
+                    <td className="p-4 text-center">
+                      <button 
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg inline-flex items-center gap-2 hover:bg-indigo-700 transition-colors text-sm font-medium" 
+                        onClick={() => { setSelectedCustomer(r.customer); setIsModalOpen(true); }}
+                      >
+                        <Plus className="w-4 h-4" /> {tr('addTransaction') || 'إضافة عملية'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {rows.length === 0 && (
+              <div className="text-center py-12 text-gray-500 text-lg">{tr('noCustomers') || 'لا يوجد عملاء'}</div>
+            )}
+          </div>
+        </AnimatedCard>
+
+        {selectedCustomer && (
+          <AnimatedCard className="mt-6 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">{tr('customerLedger') || 'كشف حساب العميل'}: {selectedCustomer.name}</h3>
+              <div className="flex gap-3">
+                <AnimatedButton variant="outline" onClick={exportLedger}><Receipt className="w-4 h-4" /> {tr('export') || 'تصدير'}</AnimatedButton>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+              <select className="p-2 border rounded-md" value={ledgerFilter.type} onChange={(e) => setLedgerFilter({ ...ledgerFilter, type: e.target.value })}>
+                <option value="">{tr('allTypes') || 'كل الأنواع'}</option>
+                <option value="debt">{tr('addDebt') || 'تسجيل دين'}</option>
+                <option value="payment">{tr('addPayment') || 'تسجيل دفع'}</option>
+              </select>
+              <input className="p-2 border rounded-md" type="date" value={ledgerFilter.dateFrom} onChange={(e) => setLedgerFilter({ ...ledgerFilter, dateFrom: e.target.value })} />
+              <input className="p-2 border rounded-md" type="date" value={ledgerFilter.dateTo} onChange={(e) => setLedgerFilter({ ...ledgerFilter, dateTo: e.target.value })} />
+              <button className="p-2 border rounded-md" onClick={() => setLedgerFilter({ type: '', dateFrom: '', dateTo: '' })}>{tr('clearFilters') || 'مسح الفلاتر'}</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="w-1/5 p-3 text-right font-semibold text-gray-700 border-b">{tr('transactionDate') || 'التاريخ'}</th>
+                    <th className="w-1/5 p-3 text-right font-semibold text-gray-700 border-b">{tr('reference') || 'رقم المرجع'}</th>
+                    <th className="w-1/5 p-3 text-right font-semibold text-gray-700 border-b">{tr('transactionType') || 'النوع'}</th>
+                    <th className="w-1/5 p-3 text-right font-semibold text-gray-700 border-b">{tr('amount') || 'المبلغ'}</th>
+                    <th className="w-1/5 p-3 text-right font-semibold text-gray-700 border-b">{tr('description') || 'الوصف'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customerLedger.map(t => (
+                    <tr key={t.id} className="border-b hover:bg-gray-50 transition-colors">
+                      <td className="p-3 text-right text-gray-600 font-medium">{t.date} {t.time}</td>
+                      <td className="p-3 text-right text-gray-500 font-mono text-sm">{t.reference || '-'}</td>
+                      <td className="p-3 text-right">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          t.type === 'debt' ? 'bg-red-100 text-red-800' : 
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {t.type === 'debt' ? (tr('addDebt') || 'تسجيل دين') : (tr('addPayment') || 'تسجيل دفع')}
+                        </span>
+                      </td>
+                      <td className={`p-3 text-right font-bold ${t.type === 'debt' ? 'text-red-600' : 'text-green-600'}`}>
+                        {t.type === 'debt' ? '+' : '-'}{(t.amount || 0).toLocaleString()} {t.currency}
+                      </td>
+                      <td className="p-3 text-right text-gray-700 max-w-xs truncate">{t.description || '-'}</td>
+                    </tr>
+                  ))}
+                  {customerLedger.length === 0 && (
+                    <tr><td className="p-6 text-center text-gray-500 text-lg" colSpan={5}>{tr('noTransactions') || 'لا توجد عمليات'}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </AnimatedCard>
+        )}
+
+        <AddDebtModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} customer={selectedCustomer} onAdded={() => {}} />
+      </motion.div>
+    </div>
+  );
+}
+
+

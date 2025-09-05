@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
-import logo from '../assets/AL-MOSTAKEM-1.png';
+
 
 export default function SignUpPage() {
     const [email, setEmail] = useState('');
@@ -64,7 +64,9 @@ export default function SignUpPage() {
         <div className="flex items-center justify-center min-h-screen bg-gray-50" dir="rtl">
             <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
                 <div className="text-center">
-                    <img src={logo} alt="شعار الشركة" className="h-20 mx-auto mb-4" />
+                    {/* Logo temporarily hidden
+            <img src={logo} alt="شعار الشركة" className="h-20 mx-auto mb-4" />
+            */}
                     <h1 className="text-2xl font-bold text-gray-800">إنشاء حساب جديد</h1>
                     <p className="text-gray-500">انضم إلينا لتتبع شحناتك بسهولة</p>
                 </div>

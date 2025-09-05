@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, updateDoc, doc, deleteDoc, orderBy, writeBatch } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { SearchIcon, DownloadIcon, PlusCircleIcon, ArrowLeftIcon } from '../components/Icons';
 import StatusSelector from '../components/StatusSelector';
 import AnimatedCard from '../components/AnimatedCard';
@@ -26,11 +27,11 @@ const formatMultiCurrency = (shipment) => {
             totals[currency] = (totals[currency] || 0) + shippingVal;
         }
     }
-    if (shipment.hwalaFeePaymentMethod === 'collect') {
-        const hwalaVal = parseFloat(shipment.hwalaFee) || 0;
-        if (hwalaVal > 0) {
-            const currency = shipment.hwalaFeeCurrency || 'USD';
-            totals[currency] = (totals[currency] || 0) + hwalaVal;
+    if (shipment.transferFeePaymentMethod === 'collect') {
+        const transferVal = parseFloat(shipment.transferFee) || 0;
+        if (transferVal > 0) {
+            const currency = shipment.transferFeeCurrency || 'USD';
+            totals[currency] = (totals[currency] || 0) + transferVal;
         }
     }
     const totalStrings = Object.entries(totals).map(([currency, amount]) => {
@@ -41,6 +42,7 @@ const formatMultiCurrency = (shipment) => {
 };
 
 export default function ShipmentsManagementPage() {
+    const { language, tr } = useLanguage();
     const [shipments, setShipments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -90,23 +92,61 @@ export default function ShipmentsManagementPage() {
         return () => unsubscribe();
     }, []);
 
+    // Update old Arabic statuses to new English keys
+    const updateOldStatuses = async () => {
+        const statusMapping = {
+            'تم الاستلام من المرسل': 'received',
+            'قيد النقل': 'in-transit',
+            'وصلت الوجهة': 'arrived',
+            'تم التسليم': 'delivered',
+            'مرتجع': 'returned'
+        };
+
+        const batch = writeBatch(db);
+        let hasUpdates = false;
+
+        shipments.forEach(shipment => {
+            if (statusMapping[shipment.status]) {
+                const shipmentRef = doc(db, 'shipments', shipment.id);
+                batch.update(shipmentRef, { status: statusMapping[shipment.status] });
+                hasUpdates = true;
+            }
+        });
+
+        if (hasUpdates) {
+            try {
+                await batch.commit();
+                console.log('Updated old statuses to new format');
+            } catch (error) {
+                console.error('Error updating statuses:', error);
+            }
+        }
+    };
+
+    // Call update function when shipments load
+    useEffect(() => {
+        if (shipments.length > 0) {
+            updateOldStatuses();
+        }
+    }, [shipments]);
+
     const handleStatusChange = async (shipmentId, newStatus) => {
         const shipmentRef = doc(db, 'shipments', shipmentId);
         try {
             await updateDoc(shipmentRef, { status: newStatus });
         } catch (error) {
             console.error("Error updating status: ", error);
-            alert("حدث خطأ أثناء تحديث الحالة.");
+            alert(tr('errorUpdatingStatus'));
         }
     };
 
     const handleDeleteShipment = async (shipmentId) => {
-        if (window.confirm("هل أنت متأكد من أنك تريد حذف هذه الشحنة بشكل نهائي؟")) {
+        if (window.confirm(tr('confirmDeleteShipment'))) {
             try {
                 await deleteDoc(doc(db, 'shipments', shipmentId));
             } catch (error) {
                 console.error("Error deleting shipment: ", error);
-                alert("حدث خطأ أثناء حذف الشحنة.");
+                alert(tr('errorDeletingShipment'));
             }
         }
     };
@@ -146,7 +186,7 @@ export default function ShipmentsManagementPage() {
         const methods = [];
         shipments.forEach(s => {
             if (s.shippingFeePaymentMethod) methods.push(s.shippingFeePaymentMethod);
-            if (s.hwalaFeePaymentMethod) methods.push(s.hwalaFeePaymentMethod);
+            if (s.transferFeePaymentMethod) methods.push(s.transferFeePaymentMethod);
         });
         return [...new Set(methods)].sort();
     };
@@ -159,18 +199,24 @@ export default function ShipmentsManagementPage() {
         
         // View filter
         let matchesView = true;
-        if (selectedView === 'pending') matchesView = shipment.status === 'pending';
-        else if (selectedView === 'in-transit') matchesView = shipment.status === 'in-transit';
-        else if (selectedView === 'delivered') matchesView = shipment.status === 'delivered';
+        if (selectedView === 'received') matchesView = shipment.status === 'received' || shipment.status === 'تم الاستلام من المرسل';
+        else if (selectedView === 'in-transit') matchesView = shipment.status === 'in-transit' || shipment.status === 'قيد النقل';
+        else if (selectedView === 'delivered') matchesView = shipment.status === 'delivered' || shipment.status === 'تم التسليم';
         
         // Advanced filters
         const matchesDateFrom = !filters.dateFrom || (shipment.date >= filters.dateFrom);
         const matchesDateTo = !filters.dateTo || (shipment.date <= filters.dateTo);
-        const matchesStatus = !filters.status || shipment.status === filters.status;
+        const matchesStatus = !filters.status || 
+            shipment.status === filters.status || 
+            (filters.status === 'in-transit' && shipment.status === 'قيد النقل') ||
+            (filters.status === 'delivered' && shipment.status === 'تم التسليم') ||
+            (filters.status === 'received' && shipment.status === 'تم الاستلام من المرسل') ||
+            (filters.status === 'arrived' && shipment.status === 'وصلت الوجهة') ||
+            (filters.status === 'returned' && shipment.status === 'مرتجع');
         const matchesGovernorate = !filters.governorate || shipment.governorate === filters.governorate;
         const matchesPaymentMethod = !filters.paymentMethod || 
             shipment.shippingFeePaymentMethod === filters.paymentMethod || 
-            shipment.hwalaFeePaymentMethod === filters.paymentMethod;
+            shipment.transferFeePaymentMethod === filters.paymentMethod;
         const matchesVehicle = !filters.assignedVehicle || shipment.assignedCar === filters.assignedVehicle;
         
         return matchesSearch && matchesView && matchesDateFrom && matchesDateTo && 
@@ -203,9 +249,9 @@ export default function ShipmentsManagementPage() {
             { header: 'أجور الشحن', key: 'shippingFee', width: 15, style: { numFmt: moneyFormat } }, 
             { header: 'عملة الشحن', key: 'shippingFeeCurrency', width: 12 }, 
             { header: 'دفع الشحن', key: 'shippingFeePaymentMethod', width: 15 }, 
-            { header: 'أجور الحوالة', key: 'hwalaFee', width: 15, style: { numFmt: moneyFormat } }, 
-            { header: 'عملة الحوالة', key: 'hwalaFeeCurrency', width: 12 }, 
-            { header: 'دفع الحوالة', key: 'hwalaFeePaymentMethod', width: 15 }, 
+            { header: 'أجور التحويل', key: 'transferFee', width: 15, style: { numFmt: moneyFormat } }, 
+            { header: 'عملة التحويل', key: 'transferFeeCurrency', width: 12 }, 
+            { header: 'دفع التحويل', key: 'transferFeePaymentMethod', width: 15 }, 
             { header: 'أجور المحول', key: 'internalTransferFee', width: 15, style: { numFmt: moneyFormat } }, 
             { header: 'عملة المحول', key: 'internalTransferFeeCurrency', width: 12 }, 
             { header: 'المبلغ الإجمالي المحصل', key: 'collectibleAmount', width: 25 }, 
@@ -216,7 +262,7 @@ export default function ShipmentsManagementPage() {
         const headers = [
             'رقم الشحنة', 'الحالة', 'التاريخ', 'اسم المستلم', 'هاتف المستلم', 'اسم المرسل', 'هاتف المرسل', 
             'المحافظة', 'السيارة', 'قيمة البضاعة', 'عملة البضاعة', 'أجور الشحن', 'عملة الشحن', 'دفع الشحن',
-            'أجور الحوالة', 'عملة الحوالة', 'دفع الحوالة', 'أجور المحول', 'عملة المحول', 'المبلغ الإجمالي المحصل', 'ملاحظات'
+            'أجور التحويل', 'عملة التحويل', 'دفع التحويل', 'أجور المحول', 'عملة المحول', 'المبلغ الإجمالي المحصل', 'ملاحظات'
         ];
         const headerRow = sheet.addRow(headers);
         headerRow.eachCell((cell) => {
@@ -228,10 +274,10 @@ export default function ShipmentsManagementPage() {
                 ...shipment,
                 goodsValue: parseFloat(shipment.goodsValue) || 0,
                 shippingFee: parseFloat(shipment.shippingFee) || 0,
-                hwalaFee: parseFloat(shipment.hwalaFee) || 0,
+                transferFee: parseFloat(shipment.transferFee) || 0,
                 internalTransferFee: parseFloat(shipment.internalTransferFee) || 0,
                 shippingFeePaymentMethod: shipment.shippingFeePaymentMethod === 'collect' ? 'تحصيل' : 'مدفوع مسبقاً',
-                hwalaFeePaymentMethod: shipment.hwalaFeePaymentMethod === 'collect' ? 'تحصيل' : 'مدفوع مسبقاً',
+                transferFeePaymentMethod: shipment.transferFeePaymentMethod === 'collect' ? 'تحصيل' : 'مدفوع مسبقاً',
                 collectibleAmount: formatMultiCurrency(shipment),
             });
         });
@@ -266,7 +312,7 @@ export default function ShipmentsManagementPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-full mx-auto"
                 variants={containerVariants}
@@ -283,9 +329,9 @@ export default function ShipmentsManagementPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة للوحة التحكم
+                                {tr('backToDashboard')}
                             </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إدارة الشحنات</h1>
+                            <h1 className="text-3xl font-bold gradient-text">{tr('shipmentsManagement')}</h1>
                         </div>
                         <div className="flex items-center gap-3">
                             <AnimatedButton
@@ -293,14 +339,14 @@ export default function ShipmentsManagementPage() {
                                 variant="primary"
                                 icon={DownloadIcon}
                             >
-                                تصدير Excel
+                                {tr('export')} Excel
                             </AnimatedButton>
                             <AnimatedButton
                                 onClick={() => navigate('/add-shipment')}
                                 variant="primary"
                                 icon={PlusCircleIcon}
                             >
-                                إضافة شحنة جديدة
+                                {tr('addNewShipment')}
                             </AnimatedButton>
                         </div>
                     </div>
@@ -312,7 +358,7 @@ export default function ShipmentsManagementPage() {
                                     <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="البحث في الشحنات..."
+                                        placeholder={tr('searchShipments')}
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="w-full lg:w-80 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -325,7 +371,7 @@ export default function ShipmentsManagementPage() {
                                     variant="outline"
                                     size="sm"
                                 >
-                                    {showFilters ? 'إخفاء الفلاتر' : 'فلاتر متقدمة'}
+                                    {showFilters ? tr('hideFilters') : tr('advancedFilters')}
                                 </AnimatedButton>
                             </div>
                             
@@ -335,10 +381,10 @@ export default function ShipmentsManagementPage() {
                                     onChange={(e) => setSelectedView(e.target.value)}
                                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="all">جميع الشحنات</option>
-                                    <option value="pending">معلق</option>
-                                    <option value="in-transit">قيد النقل</option>
-                                    <option value="delivered">تم التسليم</option>
+                                    <option value="all">{tr('allShipments')}</option>
+                                    <option value="received">{tr('statusReceived')}</option>
+                                    <option value="in-transit">{tr('statusInTransit')}</option>
+                                    <option value="delivered">{tr('statusDelivered')}</option>
                                 </select>
                             </div>
                         </div>
@@ -355,7 +401,7 @@ export default function ShipmentsManagementPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {/* Date Range Filters */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('fromDate')}</label>
                                             <input
                                                 type="date"
                                                 value={filters.dateFrom}
@@ -364,7 +410,7 @@ export default function ShipmentsManagementPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('toDate')}</label>
                                             <input
                                                 type="date"
                                                 value={filters.dateTo}
@@ -375,46 +421,57 @@ export default function ShipmentsManagementPage() {
                                         
                                         {/* Status Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('status')}</label>
                                             <select
                                                 value={filters.status}
                                                 onChange={(e) => handleFilterChange('status', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع الحالات</option>
-                                                <option value="pending">معلق</option>
-                                                <option value="in-transit">قيد النقل</option>
-                                                <option value="delivered">تم التسليم</option>
+                                                <option value="">{tr('allStatuses')}</option>
+                                                <option value="received">{tr('statusReceived')}</option>
+                                                <option value="in-transit">{tr('statusInTransit')}</option>
+                                                <option value="arrived">{tr('statusArrived')}</option>
+                                                <option value="delivered">{tr('statusDelivered')}</option>
+                                                <option value="returned">{tr('statusReturned')}</option>
                                             </select>
                                         </div>
                                         
                                         {/* Governorate Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">المحافظة</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('governorate')}</label>
                                             <select
                                                 value={filters.governorate}
                                                 onChange={(e) => handleFilterChange('governorate', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع المحافظات</option>
-                                                {getUniqueGovernorates().map(gov => (
-                                                    <option key={gov} value={gov}>{gov}</option>
-                                                ))}
+                                                <option value="">{tr('allGovernorates')}</option>
+                                                <option value={tr('nicosia')}>{tr('nicosia')}</option>
+                                                <option value={tr('famagusta')}>{tr('famagusta')}</option>
+                                                <option value={tr('kyrenia')}>{tr('kyrenia')}</option>
+                                                <option value={tr('morphou')}>{tr('morphou')}</option>
+                                                <option value={tr('iskele')}>{tr('iskele')}</option>
+                                                <option value={tr('lefke')}>{tr('lefke')}</option>
+                                                <option value={tr('güzelyurt')}>{tr('güzelyurt')}</option>
+                                                <option value={tr('dipkarpaz')}>{tr('dipkarpaz')}</option>
+                                                <option value={tr('bogaz')}>{tr('bogaz')}</option>
+                                                <option value={tr('akdogan')}>{tr('akdogan')}</option>
+                                                <option value={tr('ercan')}>{tr('ercan')}</option>
+                                                <option value={tr('karpaz')}>{tr('karpaz')}</option>
                                             </select>
                                         </div>
                                         
                                         {/* Payment Method Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الدفع</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('paymentMethod')}</label>
                                             <select
                                                 value={filters.paymentMethod}
                                                 onChange={(e) => handleFilterChange('paymentMethod', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع الطرق</option>
+                                                <option value="">{tr('allMethods')}</option>
                                                 {getUniquePaymentMethods().map(method => (
                                                     <option key={method} value={method}>
-                                                        {method === 'collect' ? 'تحصيل' : 'مدفوع مسبقاً'}
+                                                        {method === 'collect' ? tr('collect') : tr('prepaid')}
                                                     </option>
                                                 ))}
                                             </select>
@@ -422,16 +479,16 @@ export default function ShipmentsManagementPage() {
                                         
                                         {/* Vehicle Filter */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">المركبة المعينة</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr('assignedVehicle')}</label>
                                             <select
                                                 value={filters.assignedVehicle}
                                                 onChange={(e) => handleFilterChange('assignedVehicle', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             >
-                                                <option value="">جميع المركبات</option>
+                                                <option value="">{tr('allVehicles')}</option>
                                                 {vehicles.map(vehicle => (
                                                     <option key={vehicle.id} value={vehicle.vehicleNumber}>
-                                                        {vehicle.vehicleNumber} - {vehicle.vehicleType || 'غير محدد'}
+                                                        {vehicle.vehicleNumber} - {vehicle.vehicleType || tr('notSpecified')}
                                                     </option>
                                                 ))}
                                             </select>
@@ -445,7 +502,7 @@ export default function ShipmentsManagementPage() {
                                             variant="outline"
                                             size="sm"
                                         >
-                                            مسح جميع الفلاتر
+                                            {tr('resetFilters')}
                                         </AnimatedButton>
                                     </div>
                                 </motion.div>
@@ -462,7 +519,7 @@ export default function ShipmentsManagementPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل الشحنات..."
+                                text={tr('loadingShipments')}
                             />
                         </div>
                     ) : (
@@ -494,7 +551,7 @@ export default function ShipmentsManagementPage() {
                                                 </div>
                                                 <div className="flex justify-between items-center mb-3">
                                                     <span className="font-semibold text-gray-700">
-                                                        المبلغ: {formatMultiCurrency(shipment)}
+                                                         {tr('amount')}: {formatMultiCurrency(shipment)}
                                                     </span>
                                                     <StatusSelector 
                                                         currentStatus={shipment.status} 
@@ -508,14 +565,14 @@ export default function ShipmentsManagementPage() {
                                                         size="sm"
                                                         icon={Package}
                                                         className="text-blue-600 border-blue-600 hover:bg-blue-600 hover:text-white"
-                                                        title="عرض/تعديل الشحنة"
+                                                        title={tr('viewEditShipment')}
                                                     />
                                                     <AnimatedButton
                                                         onClick={() => handleCopyLink(shipment.shipmentId)}
                                                         variant="outline"
                                                         size="sm"
                                                         icon={LinkIcon}
-                                                        title="نسخ رابط التتبع"
+                                                        title={tr('copyTrackingLink')}
                                                     />
                                                     <AnimatedButton
                                                         onClick={() => handleDeleteShipment(shipment.id)}
@@ -523,7 +580,7 @@ export default function ShipmentsManagementPage() {
                                                         size="sm"
                                                         icon={TrashIcon}
                                                         className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
-                                                        title="حذف الشحنة"
+                                                        title={tr('deleteShipment')}
                                                     />
                                                 </div>
                                             </motion.div>
@@ -537,14 +594,14 @@ export default function ShipmentsManagementPage() {
                                 <table className="w-full text-sm text-right">
                                     <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                                         <tr>
-                                            <th className="p-4 font-semibold">رقم الشحنة</th>
-                                            <th className="p-4 font-semibold">العميل</th>
-                                            <th className="p-4 font-semibold">المحافظة</th>
-                                            <th className="p-4 font-semibold">قيمة البضاعة</th>
-                                            <th className="p-4 font-semibold">المبلغ المحصل</th>
-                                            <th className="p-4 font-semibold">التاريخ</th>
-                                            <th className="p-4 font-semibold">الحالة</th>
-                                            <th className="p-4 font-semibold">إجراءات</th>
+                                            <th className="p-4 font-semibold">{tr('shipmentNumber')}</th>
+                                            <th className="p-4 font-semibold">{tr('customer')}</th>
+                                            <th className="p-4 font-semibold">{tr('governorate')}</th>
+                                            <th className="p-4 font-semibold">{tr('goodsValue')}</th>
+                                            <th className="p-4 font-semibold">{tr('collectibleAmount')}</th>
+                                            <th className="p-4 font-semibold">{tr('date')}</th>
+                                            <th className="p-4 font-semibold">{tr('status')}</th>
+                                            <th className="p-4 font-semibold">{tr('actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -579,14 +636,14 @@ export default function ShipmentsManagementPage() {
                                                                 size="sm"
                                                                 icon={Package}
                                                                 className="text-blue-600 border-blue-600 hover:bg-blue-600 hover:text-white"
-                                                                title="عرض/تعديل الشحنة"
+                                                                title={tr('viewEditShipment')}
                                                             />
                                                             <AnimatedButton
                                                                 onClick={() => handleCopyLink(shipment.shipmentId)}
                                                                 variant="outline"
                                                                 size="sm"
                                                                 icon={LinkIcon}
-                                                                title="نسخ رابط التتبع"
+                                                                title={tr('copyTrackingLink')}
                                                             />
                                                             <AnimatedButton
                                                                 onClick={() => handleDeleteShipment(shipment.id)}
@@ -594,7 +651,7 @@ export default function ShipmentsManagementPage() {
                                                                 size="sm"
                                                                 icon={TrashIcon}
                                                                 className="text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
-                                                                title="حذف الشحنة"
+                                                                title={tr('deleteShipment')}
                                                             />
                                                         </div>
                                                     </td>
@@ -615,7 +672,7 @@ export default function ShipmentsManagementPage() {
                             transition={{ delay: 0.5 }}
                         >
                             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 text-lg">لا توجد شحنات. قم بإضافة شحنة جديدة.</p>
+                            <p className="text-gray-500 text-lg">{tr('noShipmentsMessage')}</p>
                         </motion.div>
                     )}
                 </AnimatedCard>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function BranchesManagementPage() {
     const navigate = useNavigate();
+    const { language, tr } = useLanguage();
     const [branches, setBranches] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,10 +80,10 @@ export default function BranchesManagementPage() {
             setEditingBranch(null);
             setIsModalOpen(false);
             
-            alert(editingBranch ? 'تم تحديث الفرع بنجاح!' : 'تم إضافة الفرع بنجاح!');
+            alert(editingBranch ? tr('branchUpdatedSuccess') : tr('branchAddedSuccess'));
         } catch (error) {
             console.error('Error saving branch:', error);
-            alert('حدث خطأ أثناء حفظ الفرع. يرجى المحاولة مرة أخرى.');
+            alert(tr('errorSavingBranch'));
         }
     };
 
@@ -100,13 +102,13 @@ export default function BranchesManagementPage() {
     };
 
     const handleDelete = async (branchId) => {
-        if (window.confirm('هل أنت متأكد من أنك تريد حذف هذا الفرع؟')) {
+        if (window.confirm(tr('confirmDeleteBranch'))) {
             try {
                 await deleteDoc(doc(db, 'branches', branchId));
-                alert('تم حذف الفرع بنجاح!');
+                alert(tr('branchDeletedSuccess'));
             } catch (error) {
                 console.error('Error deleting branch:', error);
-                alert('حدث خطأ أثناء حذف الفرع.');
+                alert(tr('errorDeletingBranch'));
             }
         }
     };
@@ -153,7 +155,7 @@ export default function BranchesManagementPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-full mx-auto"
                 variants={containerVariants}
@@ -170,16 +172,16 @@ export default function BranchesManagementPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة للوحة التحكم
+                                {tr('backToDashboard')}
                             </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إدارة الفروع</h1>
+                            <h1 className="text-3xl font-bold gradient-text">{tr('branchesManagement')}</h1>
                         </div>
                         <AnimatedButton
                             onClick={openAddModal}
                             variant="primary"
                             icon={PlusCircleIcon}
                         >
-                            إضافة فرع جديد
+                            {tr('addNewBranch')}
                         </AnimatedButton>
                     </div>
                 </motion.div>
@@ -189,7 +191,7 @@ export default function BranchesManagementPage() {
                     <AnimatedCard className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">إجمالي الفروع</p>
+                                <p className="text-sm text-gray-600">{tr('totalBranches')}</p>
                                 <p className="text-2xl font-bold text-gray-900">{branches.length}</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-lg">
@@ -201,7 +203,7 @@ export default function BranchesManagementPage() {
                     <AnimatedCard className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">الفروع النشطة</p>
+                                <p className="text-sm text-gray-600">{tr('activeBranches')}</p>
                                 <p className="text-2xl font-bold text-gray-900">
                                     {branches.filter(b => b.status === 'active').length}
                                 </p>
@@ -215,7 +217,7 @@ export default function BranchesManagementPage() {
                     <AnimatedCard className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">الفروع المتوقفة</p>
+                                <p className="text-sm text-gray-600">{tr('inactiveBranches')}</p>
                                 <p className="text-2xl font-bold text-gray-900">
                                     {branches.filter(b => b.status === 'inactive').length}
                                 </p>
@@ -235,7 +237,7 @@ export default function BranchesManagementPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل الفروع..."
+                                text={tr('loadingBranches')}
                             />
                         </div>
                     ) : (
@@ -267,17 +269,17 @@ export default function BranchesManagementPage() {
                                                             ? 'bg-green-100 text-green-800' 
                                                             : 'bg-red-100 text-red-800'
                                                     }`}>
-                                                        {branch.status === 'active' ? 'نشط' : 'متوقف'}
+                                                        {branch.status === 'active' ? tr('active') : tr('inactive')}
                                                     </span>
                                                 </div>
                                                 
                                                 <div className="space-y-2 mb-4">
                                                     <p className="text-sm flex items-center gap-1">
                                                         <Phone className="w-4 h-4" />
-                                                        <strong>الهاتف:</strong> {branch.phone}
+                                                        <strong>{tr('phone')}:</strong> {branch.phone}
                                                     </p>
-                                                    <p className="text-sm"><strong>المدير:</strong> {branch.managerName}</p>
-                                                    <p className="text-sm"><strong>هاتف المدير:</strong> {branch.managerPhone}</p>
+                                                    <p className="text-sm"><strong>{tr('manager')}:</strong> {branch.managerName}</p>
+                                                    <p className="text-sm"><strong>{tr('managerPhone')}:</strong> {branch.managerPhone}</p>
                                                 </div>
                                                 
                                                 <div className="flex items-center justify-end gap-2 border-t pt-3">
@@ -306,13 +308,13 @@ export default function BranchesManagementPage() {
                                 <table className="w-full text-sm text-right">
                                     <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                                         <tr>
-                                            <th className="p-4 font-semibold">اسم الفرع</th>
-                                            <th className="p-4 font-semibold">الموقع</th>
-                                            <th className="p-4 font-semibold">الهاتف</th>
-                                            <th className="p-4 font-semibold">المدير</th>
-                                            <th className="p-4 font-semibold">هاتف المدير</th>
-                                            <th className="p-4 font-semibold">الحالة</th>
-                                            <th className="p-4 font-semibold">إجراءات</th>
+                                            <th className="p-4 font-semibold">{tr('branchName')}</th>
+                                            <th className="p-4 font-semibold">{tr('location')}</th>
+                                            <th className="p-4 font-semibold">{tr('phone')}</th>
+                                            <th className="p-4 font-semibold">{tr('manager')}</th>
+                                            <th className="p-4 font-semibold">{tr('managerPhone')}</th>
+                                            <th className="p-4 font-semibold">{tr('status')}</th>
+                                            <th className="p-4 font-semibold">{tr('actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -338,7 +340,7 @@ export default function BranchesManagementPage() {
                                                                 ? 'bg-green-100 text-green-800' 
                                                                 : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                            {branch.status === 'active' ? 'نشط' : 'متوقف'}
+                                                            {branch.status === 'active' ? tr('active') : tr('inactive')}
                                                         </span>
                                                     </td>
                                                     <td className="p-4">
@@ -375,7 +377,7 @@ export default function BranchesManagementPage() {
                             transition={{ delay: 0.5 }}
                         >
                             <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 text-lg">لا توجد فروع. قم بإضافة فرع جديد.</p>
+                            <p className="text-gray-500 text-lg">{tr('noBranches')}</p>
                         </motion.div>
                     )}
                 </AnimatedCard>
@@ -398,13 +400,13 @@ export default function BranchesManagementPage() {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                                {editingBranch ? 'تعديل الفرع' : 'إضافة فرع جديد'}
+                                {editingBranch ? tr('editBranch') : tr('addNewBranch')}
                             </h2>
                             
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">اسم الفرع</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('branchName')}</label>
                                         <input
                                             type="text"
                                             name="branchName"
@@ -412,11 +414,11 @@ export default function BranchesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="اسم الفرع"
+                                            placeholder={tr('branchNamePlaceholder')}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">الموقع</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('location')}</label>
                                         <input
                                             type="text"
                                             name="location"
@@ -424,14 +426,14 @@ export default function BranchesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="الموقع"
+                                            placeholder={tr('locationPlaceholder')}
                                         />
                                     </div>
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">هاتف الفرع</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('branchPhone')}</label>
                                         <input
                                             type="tel"
                                             name="phone"
@@ -439,11 +441,11 @@ export default function BranchesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="هاتف الفرع"
+                                            placeholder={tr('branchPhonePlaceholder')}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">اسم المدير</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('managerName')}</label>
                                         <input
                                             type="text"
                                             name="managerName"
@@ -451,14 +453,14 @@ export default function BranchesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="اسم المدير"
+                                            placeholder={tr('managerNamePlaceholder')}
                                         />
                                     </div>
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">هاتف المدير</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('managerPhone')}</label>
                                         <input
                                             type="tel"
                                             name="managerPhone"
@@ -466,32 +468,32 @@ export default function BranchesManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                            placeholder="هاتف المدير"
+                                            placeholder={tr('managerPhonePlaceholder')}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">{tr('status')}</label>
                                         <select
                                             name="status"
                                             value={formData.status}
                                             onChange={handleInputChange}
                                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                                         >
-                                            <option value="active">نشط</option>
-                                            <option value="inactive">متوقف</option>
+                                            <option value="active">{tr('active')}</option>
+                                            <option value="inactive">{tr('inactive')}</option>
                                         </select>
                                     </div>
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">{tr('notes')}</label>
                                     <textarea
                                         name="notes"
                                         value={formData.notes}
                                         onChange={handleInputChange}
                                         rows={3}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                                        placeholder="أي ملاحظات إضافية..."
+                                        placeholder={tr('additionalNotes')}
                                     />
                                 </div>
                                 
@@ -501,13 +503,13 @@ export default function BranchesManagementPage() {
                                         onClick={closeModal}
                                         variant="outline"
                                     >
-                                        إلغاء
+                                        {tr('cancel')}
                                     </AnimatedButton>
                                     <AnimatedButton
                                         type="submit"
                                         variant="primary"
                                     >
-                                        {editingBranch ? 'تحديث الفرع' : 'إضافة الفرع'}
+                                        {editingBranch ? tr('updateBranch') : tr('addBranch')}
                                     </AnimatedButton>
                                 </div>
                             </form>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 import { ArrowLeftIcon, PlusCircleIcon } from '../components/Icons';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedButton from '../components/AnimatedButton';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function DriversManagementPage() {
     const navigate = useNavigate();
+    const { language, tr } = useLanguage();
     const [drivers, setDrivers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,21 +80,21 @@ export default function DriversManagementPage() {
             setEditingDriver(null);
             setIsModalOpen(false);
             
-            alert(editingDriver ? 'تم تحديث المندوب بنجاح!' : 'تم إضافة المندوب بنجاح!');
+            alert(editingDriver ? tr('driverUpdatedSuccess') : tr('driverAddedSuccess'));
         } catch (error) {
             console.error('Error saving driver:', error);
-            alert('حدث خطأ أثناء حفظ المندوب. يرجى المحاولة مرة أخرى.');
+            alert(tr('errorSavingDriver'));
         }
     };
 
     const handleDelete = async (driverId) => {
-        if (window.confirm('هل أنت متأكد من أنك تريد حذف هذا المندوب؟')) {
+        if (window.confirm(tr('confirmDeleteDriver'))) {
             try {
                 await deleteDoc(doc(db, 'drivers', driverId));
-                alert('تم حذف المندوب بنجاح!');
+                alert(tr('driverDeletedSuccess'));
             } catch (error) {
                 console.error('Error deleting driver:', error);
-                alert('حدث خطأ أثناء حذف المندوب.');
+                alert(tr('errorDeletingDriver'));
             }
         }
     };
@@ -147,7 +149,7 @@ export default function DriversManagementPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <motion.div 
                 className="max-w-7xl mx-auto"
                 variants={containerVariants}
@@ -164,16 +166,16 @@ export default function DriversManagementPage() {
                                 icon={ArrowLeftIcon}
                                 size="sm"
                             >
-                                العودة للوحة التحكم
+                                {tr('backToDashboard')}
                             </AnimatedButton>
-                            <h1 className="text-3xl font-bold gradient-text">إدارة المناديب</h1>
+                            <h1 className="text-3xl font-bold gradient-text">{tr('driversManagement')}</h1>
                         </div>
                         <AnimatedButton
                             onClick={openAddModal}
                             variant="primary"
                             icon={PlusCircleIcon}
                         >
-                            إضافة مندوب جديد
+                            {tr('addNewDriver')}
                         </AnimatedButton>
                     </div>
                 </motion.div>
@@ -186,7 +188,7 @@ export default function DriversManagementPage() {
                                 type="ring" 
                                 size="xl" 
                                 color="indigo" 
-                                text="جاري تحميل المناديب..."
+                                text={tr('loadingDrivers')}
                             />
                         </div>
                     ) : (
@@ -194,14 +196,14 @@ export default function DriversManagementPage() {
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-gray-50">
-                                        <th className="p-3 text-right">اسم المندوب</th>
-                                        <th className="p-3 text-right">رقم الهاتف</th>
-                                        <th className="p-3 text-right">المنطقة</th>
-                                        <th className="p-3 text-right">عدد الرحلات</th>
-                                        <th className="p-3 text-right">إجمالي الأجور</th>
-                                        <th className="p-3 text-right">آخر رحلة</th>
-                                        <th className="p-3 text-right">الحالة</th>
-                                        <th className="p-3 text-right">الإجراءات</th>
+                                        <th className="p-3 text-right">{tr('driverName')}</th>
+                                        <th className="p-3 text-right">{tr('driverPhone')}</th>
+                                        <th className="p-3 text-right">{tr('location')}</th>
+                                        <th className="p-3 text-right">{tr('numberOfTrips')}</th>
+                                        <th className="p-3 text-right">{tr('totalEarnings')}</th>
+                                        <th className="p-3 text-right">{tr('lastTrip')}</th>
+                                        <th className="p-3 text-right">{tr('status')}</th>
+                                        <th className="p-3 text-right">{tr('actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -219,7 +221,7 @@ export default function DriversManagementPage() {
                                                 {driver.totalEarnings ? `${driver.totalEarnings.toLocaleString()} USD` : '0 USD'}
                                             </td>
                                             <td className="p-3 text-center">
-                                                {driver.lastTripDate ? new Date(driver.lastTripDate.toDate()).toLocaleDateString('ar-EG') : 'لا يوجد'}
+                                                {driver.lastTripDate ? new Date(driver.lastTripDate.toDate()).toLocaleDateString('ar-EG') : tr('noLastTrip')}
                                             </td>
                                             <td className="p-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
@@ -227,7 +229,7 @@ export default function DriversManagementPage() {
                                                         ? 'bg-green-100 text-green-800' 
                                                         : 'bg-red-100 text-red-800'
                                                 }`}>
-                                                    {driver.status === 'active' ? 'نشط' : 'غير نشط'}
+                                                    {driver.status === 'active' ? tr('active') : tr('inactive')}
                                                 </span>
                                             </td>
                                             <td className="p-3">
@@ -235,14 +237,14 @@ export default function DriversManagementPage() {
                                                     <button
                                                         onClick={() => handleEdit(driver)}
                                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="تعديل"
+                                                        title={tr('edit')}
                                                     >
                                                         <Edit className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(driver.id)}
                                                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="حذف"
+                                                        title={tr('delete')}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -256,7 +258,7 @@ export default function DriversManagementPage() {
                             {drivers.length === 0 && (
                                 <div className="text-center py-8 text-gray-500">
                                     <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                    <p>لا يوجد مناديب مسجلين حالياً</p>
+                                    <p>{tr('noDrivers')}</p>
                                 </div>
                             )}
                         </div>
@@ -280,13 +282,13 @@ export default function DriversManagementPage() {
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <h2 className="text-xl font-bold mb-4">
-                                    {editingDriver ? 'تعديل المندوب' : 'إضافة مندوب جديد'}
+                                    {editingDriver ? tr('editDriver') : tr('addNewDriver')}
                                 </h2>
                                 
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            اسم المندوب <span className="text-red-500">*</span>
+                                            {tr('driverName')} <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -295,13 +297,13 @@ export default function DriversManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            placeholder="اسم المندوب"
+                                            placeholder={tr('driverNamePlaceholder')}
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            رقم الهاتف <span className="text-red-500">*</span>
+                                            {tr('driverPhone')} <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="tel"
@@ -310,13 +312,13 @@ export default function DriversManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            placeholder="رقم الهاتف"
+                                            placeholder={tr('driverPhonePlaceholder')}
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            المنطقة <span className="text-red-500">*</span>
+                                            {tr('location')} <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -325,13 +327,13 @@ export default function DriversManagementPage() {
                                             onChange={handleInputChange}
                                             required
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            placeholder="المنطقة أو المحافظة"
+                                            placeholder={tr('locationPlaceholder')}
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            الحالة
+                                            {tr('status')}
                                         </label>
                                         <select
                                             name="status"
@@ -339,14 +341,14 @@ export default function DriversManagementPage() {
                                             onChange={handleInputChange}
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         >
-                                            <option value="active">نشط</option>
-                                            <option value="inactive">غير نشط</option>
+                                            <option value="active">{tr('active')}</option>
+                                            <option value="inactive">{tr('inactive')}</option>
                                         </select>
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            ملاحظات
+                                            {tr('notes')}
                                         </label>
                                         <textarea
                                             name="notes"
@@ -354,7 +356,7 @@ export default function DriversManagementPage() {
                                             onChange={handleInputChange}
                                             rows="3"
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            placeholder="ملاحظات إضافية..."
+                                            placeholder={tr('additionalNotes')}
                                         />
                                     </div>
 
@@ -364,13 +366,13 @@ export default function DriversManagementPage() {
                                             onClick={closeModal}
                                             variant="outline"
                                         >
-                                            إلغاء
+                                            {tr('cancel')}
                                         </AnimatedButton>
                                         <AnimatedButton
                                             type="submit"
                                             variant="primary"
                                         >
-                                            {editingDriver ? 'تحديث' : 'إضافة'}
+                                            {editingDriver ? tr('update') : tr('add')}
                                         </AnimatedButton>
                                     </div>
                                 </form>

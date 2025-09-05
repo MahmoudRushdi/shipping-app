@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import logo from '../assets/AL-MOSTAKEM-1.png';
+import { useLanguage } from '../hooks/useLanguage.jsx';
 
 const getCollectibleAmount = (shipment) => {
     const totals = {};
@@ -32,81 +32,99 @@ const renderTotals = (totalsObject) => {
 };
 
 export default function TripPrintReceipt({ trip, shipments, dispatchedBranchItems, totals }) {
+    const { language } = useLanguage();
     const currentDate = new Date();
     const receiptNumber = `TRIP-${trip.id.substring(0, 8).toUpperCase()}`;
     
+    // تصميم A4 للغة الإنجليزية، A5 للعربية
+    const isEnglish = language === 'en';
+    const pageWidth = isEnglish ? '210mm' : '210mm'; // A4 width
+    const pageHeight = isEnglish ? '297mm' : '148mm'; // A4 height vs A5 height
+    const pageDirection = isEnglish ? 'ltr' : 'rtl';
+    const pageTextAlign = isEnglish ? 'left' : 'right';
+    
+    // تحسينات إضافية للغة الإنجليزية
+    const englishSpacing = isEnglish ? '15px' : '8px';
+    const englishFontSize = isEnglish ? '12px' : '8px';
+    const englishPadding = isEnglish ? '8px' : '4px';
+    
     return (
         <div className="print-receipt" style={{ 
-            fontFamily: 'Arial, sans-serif',
-            width: '210mm', // A5 landscape width
-            height: '148mm', // A5 landscape height
+            fontFamily: isEnglish ? 'Arial, sans-serif' : 'Arial, sans-serif',
+            width: pageWidth,
+            height: pageHeight,
             margin: '0 auto',
-            padding: '5mm', // تقليل الهوامش
+            padding: isEnglish ? '15mm' : '5mm',
             backgroundColor: 'white',
             color: 'black',
-            fontSize: '8px', // تقليل حجم الخط
-            lineHeight: '1.2',
-            direction: 'rtl',
+            fontSize: isEnglish ? '11px' : '8px',
+            lineHeight: '1.4',
+            direction: pageDirection,
             position: 'relative',
             boxSizing: 'border-box',
-            textAlign: 'right'
+            textAlign: pageTextAlign,
+            // تحسينات للطباعة
+            '@media print': {
+                pageBreakAfter: 'always',
+                pageBreakInside: 'avoid'
+            }
         }}>
             {/* Header Section */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
-                marginBottom: '8px', // تقليل المسافة
-                direction: 'rtl'
+                marginBottom: isEnglish ? '15px' : '8px',
+                direction: pageDirection
             }}>
-                {/* Right side - Company Info */}
-                <div style={{ textAlign: 'right', flex: '1', direction: 'rtl' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px', direction: 'rtl' }}>
-                        <img 
-                            src={logo} 
-                            alt="شعار الشركة" 
-                            style={{ 
-                                height: '20px', // تقليل حجم الشعار
-                                width: 'auto',
-                                marginLeft: '6px'
-                            }} 
-                        />
-                        <div style={{ direction: 'rtl', textAlign: 'right' }}>
+                {/* Company Info - Right side for Arabic, Left side for English */}
+                <div style={{ 
+                    textAlign: isEnglish ? 'left' : 'right', 
+                    flex: '1', 
+                    direction: pageDirection 
+                }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        marginBottom: '4px', 
+                        direction: pageDirection 
+                    }}>
+                        <div style={{ direction: pageDirection, textAlign: isEnglish ? 'left' : 'right' }}>
                             <h1 style={{ 
                                 margin: '0 0 2px 0', 
-                                fontSize: '12px', // تقليل حجم الخط
+                                fontSize: isEnglish ? '16px' : '12px',
                                 fontWeight: 'bold',
                                 color: '#1e40af',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                AL-MOSTAKEM
+                                {isEnglish ? 'EXPRESS TRANSPORT' : 'EXPRESS TRANSPORT'}
                             </h1>
                             <h2 style={{ 
                                 margin: '0 0 2px 0', 
-                                fontSize: '10px', // تقليل حجم الخط
+                                fontSize: isEnglish ? '14px' : '10px',
                                 fontWeight: 'bold',
                                 color: '#1e40af',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                شركة المستقيم
+                                {isEnglish ? 'Transport Company' : 'شركة النقل'}
                             </h2>
                         </div>
                     </div>
                     <p style={{ 
                         margin: '1px 0', 
-                        fontSize: '7px', // تقليل حجم الخط
+                        fontSize: isEnglish ? '10px' : '7px',
                         color: '#374151',
-                        textAlign: 'right'
+                        textAlign: isEnglish ? 'left' : 'right'
                     }}>
-                        للنقل والتجارة الدولية
+                        {isEnglish ? 'For International Transport & Trade' : 'للنقل والتجارة الدولية'}
                     </p>
                     <p style={{ 
                         margin: '1px 0', 
-                        fontSize: '7px', // تقليل حجم الخط
+                        fontSize: isEnglish ? '10px' : '7px',
                         color: '#374151',
-                        textAlign: 'right'
+                        textAlign: isEnglish ? 'left' : 'right'
                     }}>
-                        شحن بري : كلي - جزئي
+                        {isEnglish ? 'Land Freight: Full - Partial' : 'شحن بري : كلي - جزئي'}
                     </p>
                 </div>
 
@@ -115,195 +133,206 @@ export default function TripPrintReceipt({ trip, shipments, dispatchedBranchItem
                     textAlign: 'center', 
                     flex: '1',
                     border: '1px solid #d1d5db',
-                    padding: '4px', // تقليل التباعد
+                    padding: isEnglish ? '8px' : '4px',
                     borderRadius: '3px',
-                    direction: 'rtl'
+                    direction: pageDirection
                 }}>
                     <h3 style={{ 
                         margin: '0 0 2px 0', 
-                        fontSize: '10px', // تقليل حجم الخط
+                        fontSize: isEnglish ? '14px' : '10px',
                         fontWeight: 'bold',
                         color: '#1e40af',
                         textAlign: 'center'
                     }}>
-                        وصل تسليم البضائع
+                        {isEnglish ? 'Goods Delivery Receipt' : 'وصل تسليم البضائع'}
                     </h3>
-                    <div style={{ fontSize: '7px', textAlign: 'center' }}>
+                    <div style={{ fontSize: isEnglish ? '10px' : '7px', textAlign: 'center' }}>
                         <p style={{ margin: '1px 0', textAlign: 'center' }}>
-                            البوليصة : {receiptNumber}
+                            {isEnglish ? `Waybill: ${receiptNumber}` : `البوليصة : ${receiptNumber}`}
                         </p>
                         <p style={{ margin: '1px 0', textAlign: 'center' }}>
-                            التاريخ : {format(currentDate, 'dd/MM/yyyy')}
+                            {isEnglish ? `Date: ${format(currentDate, 'dd/MM/yyyy')}` : `التاريخ : ${format(currentDate, 'dd/MM/yyyy')}`}
                         </p>
                     </div>
                 </div>
 
-                {/* Left side - Logo */}
-                <div style={{ textAlign: 'left', flex: '1', direction: 'ltr' }}>
+                {/* Logo - Left side for Arabic, Right side for English */}
+                <div style={{ 
+                    textAlign: isEnglish ? 'right' : 'left', 
+                    flex: '1', 
+                    direction: isEnglish ? 'rtl' : 'ltr' 
+                }}>
                     <div style={{
                         border: '1px solid #d1d5db',
-                        padding: '3px', // تقليل التباعد
+                        padding: isEnglish ? '6px' : '3px',
                         borderRadius: '3px',
-                        width: '40px', // تقليل الحجم
-                        height: '30px', // تقليل الحجم
+                        width: isEnglish ? '60px' : '40px',
+                        height: isEnglish ? '45px' : '30px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center'
                     }}>
-                        <span style={{ fontSize: '6px', fontWeight: 'bold' }}>شركة المستقيم</span>
-                        <span style={{ fontSize: '6px' }}>Al-Mostakem</span>
+                        <span style={{ 
+                            fontSize: isEnglish ? '8px' : '6px', 
+                            fontWeight: 'bold' 
+                        }}>
+                            {isEnglish ? 'Express Transport' : 'شركة النقل'}
+                        </span>
+                        <span style={{ fontSize: isEnglish ? '8px' : '6px' }}>
+                            {isEnglish ? 'Transport Company' : 'Express Transport'}
+                        </span>
                     </div>
                 </div>
             </div>
 
             {/* Shipment Details Section */}
-            <div style={{ marginBottom: '8px', direction: 'rtl' }}>
+            <div style={{ marginBottom: isEnglish ? '15px' : '8px', direction: pageDirection }}>
                 <table style={{ 
                     width: '100%', 
                     borderCollapse: 'collapse',
-                    fontSize: '7px', // تقليل حجم الخط
-                    direction: 'rtl'
+                    fontSize: isEnglish ? '10px' : '7px',
+                    direction: pageDirection
                 }}>
                     <tbody>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
                                 width: '25%',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                المصدر :
+                                {isEnglish ? 'Origin:' : 'المصدر :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 width: '25%',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {trip.destination || 'غير محدد'}
+                                {trip.destination || (isEnglish ? 'Not Specified' : 'غير محدد')}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
                                 width: '25%',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                المرسل :
+                                {isEnglish ? 'Sender:' : 'المرسل :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 width: '25%',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {shipments[0]?.customerName || 'غير محدد'}
+                                {shipments[0]?.customerName || (isEnglish ? 'Not Specified' : 'غير محدد')}
                             </td>
                         </tr>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                الوجهة :
+                                {isEnglish ? 'Destination:' : 'الوجهة :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {trip.destination || 'غير محدد'}
+                                {trip.destination || (isEnglish ? 'Not Specified' : 'غير محدد')}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                المرسل إليه :
+                                {isEnglish ? 'Recipient:' : 'المرسل إليه :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {shipments[0]?.customerName || 'غير محدد'}
+                                {shipments[0]?.customerName || (isEnglish ? 'Not Specified' : 'غير محدد')}
                             </td>
                         </tr>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                نوع البضاعة :
+                                {isEnglish ? 'Cargo Type:' : 'نوع البضاعة :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {shipments[0]?.parcelType || 'غير محدد'}
+                                {shipments[0]?.parcelType || (isEnglish ? 'Not Specified' : 'غير محدد')}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                الإرسالية :
+                                {isEnglish ? 'Shipment:' : 'الإرسالية :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
                                 {receiptNumber}
                             </td>
                         </tr>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                عدد الطرود :
+                                {isEnglish ? 'Parcels Count:' : 'عدد الطرود :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
                                 {shipments.length}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                الوزن :
+                                {isEnglish ? 'Weight:' : 'الوزن :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {shipments.reduce((total, shipment) => total + (parseFloat(shipment.weight) || 0), 0).toFixed(2)} كغ
+                                {shipments.reduce((total, shipment) => total + (parseFloat(shipment.weight) || 0), 0).toFixed(2)} {isEnglish ? 'kg' : 'كغ'}
                             </td>
                         </tr>
                     </tbody>
@@ -311,97 +340,97 @@ export default function TripPrintReceipt({ trip, shipments, dispatchedBranchItem
             </div>
 
             {/* Financial Breakdown Section */}
-            <div style={{ marginBottom: '8px', direction: 'rtl' }}>
+            <div style={{ marginBottom: isEnglish ? '15px' : '8px', direction: pageDirection }}>
                 <h4 style={{ 
                     margin: '0 0 4px 0',
-                    fontSize: '8px', // تقليل حجم الخط
+                    fontSize: isEnglish ? '12px' : '8px',
                     fontWeight: 'bold',
                     color: '#1e40af',
                     textAlign: 'center'
                 }}>
-                    التفاصيل المالية
+                    {isEnglish ? 'Financial Details' : 'التفاصيل المالية'}
                 </h4>
                 <table style={{ 
                     width: '100%', 
                     borderCollapse: 'collapse',
-                    fontSize: '7px', // تقليل حجم الخط
-                    direction: 'rtl'
+                    fontSize: isEnglish ? '10px' : '7px',
+                    direction: pageDirection
                 }}>
                     <tbody>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
                                 width: '50%',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                أجور الشحن :
+                                {isEnglish ? 'Shipping Fees:' : 'أجور الشحن :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 width: '50%',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {renderTotals(totals.collections)} دولار أمريكي
+                                {renderTotals(totals.collections)} {isEnglish ? 'USD' : 'دولار أمريكي'}
                             </td>
                         </tr>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                أجور نقل داخلي :
+                                {isEnglish ? 'Internal Transport Fees:' : 'أجور نقل داخلي :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {renderTotals(totals.expenses)} دولار أمريكي
+                                {renderTotals(totals.expenses)} {isEnglish ? 'USD' : 'دولار أمريكي'}
                             </td>
                         </tr>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                صافي الأجور :
+                                {isEnglish ? 'Net Fees:' : 'صافي الأجور :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 color: '#059669',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {renderTotals(totals.profit)} دولار أمريكي
+                                {renderTotals(totals.profit)} {isEnglish ? 'USD' : 'دولار أمريكي'}
                             </td>
                         </tr>
                         <tr>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
                                 fontWeight: 'bold',
                                 backgroundColor: '#f3f4f6',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                مبلغ مقبوض :
+                                {isEnglish ? 'Amount Collected:' : 'مبلغ مقبوض :'}
                             </td>
                             <td style={{ 
-                                padding: '2px', // تقليل التباعد
+                                padding: isEnglish ? '4px' : '2px',
                                 border: '1px solid #d1d5db',
-                                textAlign: 'right'
+                                textAlign: isEnglish ? 'left' : 'right'
                             }}>
-                                {renderTotals(totals.collections)} دولار أمريكي
+                                {renderTotals(totals.collections)} {isEnglish ? 'USD' : 'دولار أمريكي'}
                             </td>
                         </tr>
                     </tbody>
@@ -411,94 +440,119 @@ export default function TripPrintReceipt({ trip, shipments, dispatchedBranchItem
             {/* Notes Section */}
             {trip.notes && (
                 <div style={{ 
-                    marginBottom: '8px',
-                    padding: '4px', // تقليل التباعد
+                    marginBottom: isEnglish ? '15px' : '8px',
+                    padding: isEnglish ? '8px' : '4px',
                     backgroundColor: '#fef3c7',
                     borderRadius: '3px',
                     border: '1px solid #f59e0b',
-                    fontSize: '7px', // تقليل حجم الخط
-                    direction: 'rtl'
+                    fontSize: isEnglish ? '10px' : '7px',
+                    direction: pageDirection
                 }}>
                     <p style={{ 
                         margin: '0',
                         fontWeight: 'bold',
                         color: '#92400e',
-                        textAlign: 'right'
+                        textAlign: isEnglish ? 'left' : 'right'
                     }}>
-                        ملاحظات : {trip.notes}
+                        {isEnglish ? `Notes: ${trip.notes}` : `ملاحظات : ${trip.notes}`}
                     </p>
                 </div>
             )}
 
             {/* Terms and Conditions Section */}
-            <div style={{ marginBottom: '8px', direction: 'rtl' }}>
+            <div style={{ marginBottom: isEnglish ? '15px' : '8px', direction: pageDirection }}>
                 <h4 style={{ 
                     margin: '0 0 4px 0',
-                    fontSize: '8px', // تقليل حجم الخط
+                    fontSize: isEnglish ? '12px' : '8px',
                     fontWeight: 'bold',
                     color: '#1e40af',
                     textAlign: 'center'
                 }}>
-                    شروط الشحن والتسليم :
+                    {isEnglish ? 'Shipping & Delivery Terms:' : 'شروط الشحن والتسليم :'}
                 </h4>
                 <div style={{ 
-                    fontSize: '6px', // تقليل حجم الخط
+                    fontSize: isEnglish ? '8px' : '6px',
                     lineHeight: '1.1',
-                    textAlign: 'right',
-                    direction: 'rtl'
+                    textAlign: isEnglish ? 'left' : 'right',
+                    direction: pageDirection
                 }}>
-                    <p style={{ margin: '1px 0', textAlign: 'right' }}>
-                        1. هذا المستند يعتبر دليل على عملية الشحن ومعلوماته حجة في السجلات المالية.
-                    </p>
-                    <p style={{ margin: '1px 0', textAlign: 'right' }}>
-                        2. يجب الإعلان عن البضائع بشفافية وإلا فهي عرضة للمصادرة أو الإرجاع.
-                    </p>
-                    <p style={{ margin: '1px 0', textAlign: 'right' }}>
-                        3. يجب أن تكون البضائع معبأة بشكل جيد خاصة القطع الهشة، الشركة غير مسؤولة عن الأضرار الناتجة عن نقص المعلومات أو سوء التعبئة.
-                    </p>
-                    <p style={{ margin: '1px 0', textAlign: 'right' }}>
-                        4. الوقت المتوقع للتسليم أسبوع واحد في الظروف العادية، الشركة غير مسؤولة بعد 50 يوماً من التاريخ.
-                    </p>
-                    <p style={{ margin: '1px 0', textAlign: 'right' }}>
-                        5. الشركة غير مسؤولة عن التأخير الناتج عن ظروف غير طبيعية خارجة عن إرادتها.
-                    </p>
-                    <p style={{ margin: '1px 0', textAlign: 'right' }}>
-                        6. يجب فحص البضائع عند الاستلام للتأكد من مطابقتها للبوليصة، المستلم مسؤول عن أي نقص بعد التوقيع.
-                    </p>
+                    {isEnglish ? (
+                        <>
+                            <p style={{ margin: '1px 0', textAlign: 'left' }}>
+                                1. This document serves as proof of shipping operation and its information is valid in financial records.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'left' }}>
+                                2. Goods must be declared transparently, otherwise they are subject to confiscation or return.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'left' }}>
+                                3. Goods must be properly packaged, especially fragile items. The company is not responsible for damages resulting from lack of information or poor packaging.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'left' }}>
+                                4. Expected delivery time is one week under normal circumstances. The company is not responsible after 50 days from the date.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'left' }}>
+                                5. The company is not responsible for delays caused by abnormal circumstances beyond its control.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'left' }}>
+                                6. Goods must be inspected upon receipt to ensure they match the waybill. The recipient is responsible for any shortage after signing.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <p style={{ margin: '1px 0', textAlign: 'right' }}>
+                                1. هذا المستند يعتبر دليل على عملية الشحن ومعلوماته حجة في السجلات المالية.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'right' }}>
+                                2. يجب الإعلان عن البضائع بشفافية وإلا فهي عرضة للمصادرة أو الإرجاع.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'right' }}>
+                                3. يجب أن تكون البضائع معبأة بشكل جيد خاصة القطع الهشة، الشركة غير مسؤولة عن الأضرار الناتجة عن نقص المعلومات أو سوء التعبئة.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'right' }}>
+                                4. الوقت المتوقع للتسليم أسبوع واحد في الظروف العادية، الشركة غير مسؤولة بعد 50 يوماً من التاريخ.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'right' }}>
+                                5. الشركة غير مسؤولة عن التأخير الناتج عن ظروف غير طبيعية خارجة عن إرادتها.
+                            </p>
+                            <p style={{ margin: '1px 0', textAlign: 'right' }}>
+                                6. يجب فحص البضائع عند الاستلام للتأكد من مطابقتها للبوليصة، المستلم مسؤول عن أي نقص بعد التوقيع.
+                            </p>
+                        </>
+                    )}
                 </div>
             </div>
 
             {/* Footer with Signature */}
             <div style={{
-                marginTop: '8px', // تقليل المسافة
+                marginTop: isEnglish ? '15px' : '8px',
                 textAlign: 'center',
-                direction: 'rtl'
+                direction: pageDirection
             }}>
                 <div style={{ 
                     border: '1px solid #d1d5db',
-                    padding: '4px', // تقليل التباعد
+                    padding: isEnglish ? '8px' : '4px',
                     borderRadius: '3px',
                     marginBottom: '3px',
                     display: 'inline-block',
-                    minWidth: '150px' // تقليل العرض
+                    minWidth: isEnglish ? '200px' : '150px'
                 }}>
                     <p style={{ 
                         margin: '0',
-                        fontSize: '7px', // تقليل حجم الخط
+                        fontSize: isEnglish ? '10px' : '7px',
                         fontWeight: 'bold',
                         color: '#374151',
                         textAlign: 'center'
                     }}>
-                        اسم المتسلم و التوقيع
+                        {isEnglish ? 'Recipient Name & Signature' : 'اسم المتسلم و التوقيع'}
                     </p>
                 </div>
                 <div style={{ 
-                    fontSize: '6px', // تقليل حجم الخط
+                    fontSize: isEnglish ? '8px' : '6px',
                     color: '#6b7280',
                     textAlign: 'center'
                 }}>
                     <p style={{ margin: '1px 0', textAlign: 'center' }}>
-                        لقد قرأت وفهمت شروط الشحن والتسليم وعليه أوقع
+                        {isEnglish ? 'I have read and understood the shipping and delivery terms and hereby sign' : 'لقد قرأت وفهمت شروط الشحن والتسليم وعليه أوقع'}
                     </p>
                 </div>
             </div>
